@@ -59,21 +59,25 @@ def _pvalue_from_ci(lo: float, hi: float, point: float) -> float:
 
 
 def joint_block_stats(panel: pd.DataFrame, B=B_BOOT, L=BLOCK_DAYS, seed=SEED) -> dict:
-    """Joint date-block bootstrap over the 6-pair panel.
+    """Joint date-block bootstrap over the 6-pair panel — MULTI-BLOCK version.
 
-    panel: indexed by (london_date, pair) with columns compressed + metrics.
-    Block = L consecutive London dates; sample blocks with replacement until
-    the drawn date count >= observed unique dates; concatenate block panels.
+    Classical moving-block bootstrap with a DISJOINT partition: the sample is
+    partitioned into ceil(n_dates/L) contiguous non-overlapping blocks; each
+    replicate resamples those blocks independently with replacement,
+    concatenates, and truncates to n_dates (audit fix: v2 drew ONE block and
+    tiled it). The joint panel (6 pairs per date) is carried through draws,
+    preserving same-date cross-pair dependence and temporal spacing.
     """
     rng = np.random.default_rng(seed)
     dates = np.sort(panel.index.get_level_values(0).unique().to_numpy())
     n_dates = len(dates)
-    # per-date panels as flat arrays for fast draws
+    edges = list(range(0, n_dates, L))
+    blocks = [(e, min(e + L, n_dates)) for e in edges]
+    n_blocks = len(blocks)
     by_date = {d: sub for d, sub in panel.groupby(level=0)}
 
     def stat(draw_dates) -> dict:
         pieces = [by_date[d].assign(_b=i) for i, d in enumerate(draw_dates)]
-        # concat is the bottleneck; use smaller number of big concats
         p = pd.concat(pieces, ignore_index=True)
         c = p[p["compressed"]]
         n = p[~p["compressed"]]
@@ -88,35 +92,32 @@ def joint_block_stats(panel: pd.DataFrame, B=B_BOOT, L=BLOCK_DAYS, seed=SEED) ->
         return out
 
     point = stat(dates)
-    starts = rng.integers(0, n_dates - L + 1, size=B)
     boot = {k: np.empty(B) for k in point}
-    for b, s in enumerate(starts):
-        # block-concatenated date list (np arrays of scalars -> use python list then tile)
-        dd = [dates[s + j] for j in range(L) if s + j < n_dates]
-        dd = np.array(dd, dtype=dates.dtype)
-        # need ~n_dates coverage: repeat blocks until length reached
-        reps = int(np.ceil(n_dates / max(1, len(dd))))
-        dd_full = np.tile(dd, reps)[:n_dates]
-        st = stat(dd_full)
+    nan_ct = {k: 0 for k in point}
+    for b in range(B):
+        picks = rng.integers(0, n_blocks, size=n_blocks)     # independent block resample
+        dd = np.concatenate([np.arange(*blocks[p]) for p in picks])[:n_dates]
+        st = stat(dates[dd])                                 # positions -> date labels
         for k in point:
-            boot[k][b] = st[k]
+            v = st[k]
+            if np.isfinite(v):
+                boot[k][b] = v
+            else:
+                nan_ct[k] += 1
+                boot[k][b] = np.nan
 
-    result = {"point": point, "ci95": {}, "excludes_zero": {}, "n_valid_draws": {}}
+    result = {"point": point, "ci95": {}, "excludes_zero": {}, "n_valid_draws": {},
+              "blocks_per_replicate": n_blocks}
     for k in point:
-        arr = boot[k]
-        valid = arr[np.isfinite(arr)]
+        valid = boot[k][np.isfinite(boot[k])]
         result["n_valid_draws"][k] = int(len(valid))
-        if len(valid) < 100:
-            # poison-draw protection: record instead of yielding NaN CIs
+        if len(valid) < max(100, int(0.9 * B)):
             result["ci95"][k] = None
             result["excludes_zero"][k] = None
             continue
         lo, hi = np.percentile(valid, [2.5, 97.5])
         result["ci95"][k] = [float(lo), float(hi)]
         result["excludes_zero"][k] = bool(lo > 0 or hi < 0)
-        if len(valid) < B:
-            print(f"    [boot] {k}: {B - len(valid)} NaN draws discarded "
-                  f"(draws with a degenerate block)", flush=True)
     return result
 
 
@@ -153,17 +154,27 @@ def main(out_root="runs"):
     panel = flagged[panel_cols]
 
     boot = joint_block_stats(panel)
-    c = panel[panel["compressed"]]
-    n = panel[~panel["compressed"]]
+    # relative-range diagnostics need the hi/lo columns (kept in flagged, not panel)
+    # flagged has 'pair' as index level AND column — reset to a flat frame first
+    flat = flagged.reset_index(drop=True)
+    c = flat[flat["compressed"]]
+    n = flat[~flat["compressed"]]
+    panel_c = panel[panel["compressed"]]
+    panel_n = panel[~panel["compressed"]]
     diagnostics = {
-        "n_compressed": int(len(c)), "n_noncompressed": int(len(n)),
-        "er_median_comp": float(c["expansion_ratio"].median()),
-        "er_median_non": float(n["expansion_ratio"].median()),
-        "er_mw": mw_u_p(c["expansion_ratio"].to_numpy(), n["expansion_ratio"].to_numpy()),
-        "ldn_pct_median_comp": float(c["ldn_pct"].median()),
-        "ldn_pct_median_non": float(n["ldn_pct"].median()),
-        "ldn_range_bp_comp": float(c["ldn_range"].mean() * 1e4),
-        "ldn_range_bp_non": float(n["ldn_range"].mean() * 1e4),
+        "n_compressed": int(len(panel_c)), "n_noncompressed": int(len(panel_n)),
+        "er_median_comp": float(panel_c["expansion_ratio"].median()),
+        "er_median_non": float(panel_n["expansion_ratio"].median()),
+        "er_mw": mw_u_p(panel_c["expansion_ratio"].to_numpy(), panel_n["expansion_ratio"].to_numpy()),
+        "ldn_pct_median_comp": float(panel_c["ldn_pct"].median()),
+        "ldn_pct_median_non": float(panel_n["ldn_pct"].median()),
+        # AUDIT #5 fix: relative range = range / mid-price, in bp; per-pair mean then pooled average
+        "ldn_rel_range_bp_comp": float(
+            c.assign(rr=lambda g: g["ldn_range"] / (g["ldn_hi"] + g["ldn_lo"]) * 2 * 1e4)
+            .groupby("pair")["rr"].mean().mean()),
+        "ldn_rel_range_bp_non": float(
+            n.assign(rr=lambda g: g["ldn_range"] / (g["ldn_hi"] + g["ldn_lo"]) * 2 * 1e4)
+            .groupby("pair")["rr"].mean().mean()),
     }
     report = {
         "registry_version": "1.0",

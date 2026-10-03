@@ -1,0 +1,104 @@
+{
+  "experiment": "FX-LDN-002-004-v2",
+  "git_revision": "0db8c32a47194884d764333839f54d3508500f72",
+  "decision_rule": "L1 = median-ER CI excludes 0 positively AND |R_60| and |R_180| CIs exclude 0 positively AND >=5/6 pair sign agreement on |R_60|; else branch fails/mechanical.",
+  "bootstrap": {
+    "B": 2000,
+    "L_days": 20,
+    "scheme": "disjoint-partition moving-block, joint 6-pair panel",
+    "seed": 42
+  },
+  "diagnostics": {
+    "n_compressed": 4819,
+    "n_noncompressed": 9756,
+    "er_median_comp": 0.8090909090909009,
+    "er_median_non": 0.5432989895249261,
+    "er_mw": {
+      "z": 45.79045607008397,
+      "p": 0.0
+    },
+    "ldn_pct_median_comp": 0.3416666666666667,
+    "ldn_pct_median_non": 0.5666666666666667,
+    "ldn_rel_range_bp_comp": 15.92676815261843,
+    "ldn_rel_range_bp_non": 20.301221281095028
+  },
+  "point": {
+    "med_er_diff": 0.2657919195659748,
+    "mean_er_diff": 0.3039452221438801,
+    "p1_diff": 0.21158710808938344,
+    "p15_diff": 0.07591544114237574,
+    "r60_diff": -0.00011140707024781706,
+    "r180_diff": -0.0001835944623445275
+  },
+  "ci95": {
+    "med_er_diff": [
+      0.24082808748718873,
+      0.29176513176023156
+    ],
+    "mean_er_diff": [
+      0.2789110325347812,
+      0.330192895501299
+    ],
+    "p1_diff": [
+      0.18656535681133804,
+      0.23595011989287695
+    ],
+    "p15_diff": [
+      0.06268775606966678,
+      0.09021582249915251
+    ],
+    "r60_diff": [
+      -0.000141339465624032,
+      -8.300492155464753e-05
+    ],
+    "r180_diff": [
+      -0.00025478588426251265,
+      -0.00012704864334723087
+    ]
+  },
+  "sign_tables": {
+    "ABS_signs_60": {
+      "signs": {
+        "AUDUSD": -0.00015991276165040302,
+        "EURUSD": -8.543290125163705e-05,
+        "GBPUSD": -8.578867529576142e-05,
+        "USDCAD": -3.609807418960794e-05,
+        "USDCHF": -9.378463236228609e-05,
+        "USDJPY": -0.0001978593462794303
+      },
+      "n_positive": 0,
+      "n_pairs": 6
+    },
+    "ABS_signs_180": {
+      "signs": {
+        "AUDUSD": -0.0001320695451846089,
+        "EURUSD": -0.00016542951129513896,
+        "GBPUSD": -0.00017721724664820936,
+        "USDCAD": -0.00011277018823107124,
+        "USDCHF": -0.00015123743709807857,
+        "USDJPY": -0.0003489176328716453
+      },
+      "n_positive": 0,
+      "n_pairs": 6
+    },
+    "ER_signs": {
+      "signs": {
+        "AUDUSD": 0.3104821579690571,
+        "EURUSD": 0.3154203199954464,
+        "GBPUSD": 0.415166238066909,
+        "USDCAD": 0.27376779239937754,
+        "USDCHF": 0.29681637955069873,
+        "USDJPY": 0.19855363998499975
+      },
+      "n_positive": 6,
+      "n_pairs": 6
+    }
+  },
+  "checks": {
+    "median_ER_ci_positive": true,
+    "absR60_ci_positive": false,
+    "absR180_ci_positive": false,
+    "signs60_ge_5_of_6": false
+  },
+  "gate_L1_decision": "MECHANICAL \u2014 ratio artifact; no absolute movement uplift"
+}

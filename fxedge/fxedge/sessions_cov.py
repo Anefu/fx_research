@@ -57,24 +57,31 @@ def forward_return(bars_1m: pd.DataFrame, t0: pd.Timestamp, minutes: int) -> Opt
 
 def compute_sessions_coverage(ticks_month: pd.DataFrame, pair: str, frz,
                               engine, day_lo: date, day_hi: date) -> pd.DataFrame:
-    """FX-LDN-001 session table for the ticks slice, with explicit coverage checks."""
+    """FX-LDN-001 session table (audit-B3 semantics).
+
+    Every expected session in [day_lo, day_hi] is recorded exactly once with a
+    status; nothing disappears silently. Validity is horizon-specific:
+      valid            : both windows covered
+      valid_for_h{h}   : valid AND that horizon's forward return measurable
+    """
     from fxedge.bars import build_bars
     if ticks_month.empty:
         return pd.DataFrame()
     bars_1m = build_bars(ticks_month, rule="1m")
     rows = []
     for asia, ldn, dst in engine.sessions_for_range(day_lo, day_hi):
+        base = {"pair": pair, "london_date": asia.london_date, "dst_summer": dst,
+                "valid": False, "reason": "",
+                "valid_for_h15m": False, "valid_for_h30m": False,
+                "valid_for_h60m": False, "valid_for_h180m": False}
         if asia.start_utc < ticks_month.index[0] or ldn.end_utc > ticks_month.index[-1]:
-            # window edges outside this slice: another month's runner handles it
-            edge = "next" if ldn.start_utc > ticks_month.index[-1] else "prev"
+            base["reason"] = "out-of-slice"
+            rows.append(base)           # recorded, never silently dropped
             continue
         a_start, a_end = pd.Timestamp(asia.start_utc), pd.Timestamp(asia.end_utc)
         l_start, l_end = pd.Timestamp(ldn.start_utc), pd.Timestamp(ldn.end_utc)
         aa = window_hilo(bars_1m, a_start, a_end, min_ticks_window=350)   # ~83% of 420 min
         ll = window_hilo(bars_1m, l_start, l_end, min_ticks_window=150)   # ~83% of 181 min
-        base = {"pair": pair, "london_date": asia.london_date, "dst_summer": dst,
-                "asia_hi": np.nan, "asia_lo": np.nan, "ldn_hi": np.nan, "ldn_lo": np.nan,
-                "valid": False, "reason": ""}
         if aa is None or ll is None:
             base["reason"] = "window-coverage"
             rows.append(base)
@@ -95,8 +102,7 @@ def compute_sessions_coverage(ticks_month: pd.DataFrame, pair: str, frz,
             r = forward_return(bars_1m, t0, h)
             row[f"r_{h}m"] = r if r is not None else np.nan
             row[f"absr_{h}m"] = abs(r) if r is not None else np.nan
-            if r is None and "horizon-missing" not in row["reason"]:
-                row["reason"] = "horizon-missing"
+            row[f"valid_for_h{h}m"] = r is not None
         rows.append(row)
     return pd.DataFrame(rows)
 

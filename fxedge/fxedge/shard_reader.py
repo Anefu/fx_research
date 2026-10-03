@@ -73,13 +73,11 @@ def read_pair(pair: str, start: Optional[pd.Timestamp] = None,
               end: Optional[pd.Timestamp] = None,
               root: Optional[Path] = None,
               pad_months: int = 1) -> pd.DataFrame:
-    """Read one pair's shard tree for [start, end] (UTC, inclusive), as bid/ask frame.
+    """Read one pair's shard tree for [start, end] (UTC, inclusive).
 
-    Reads only the shards overlapping the range — bounded memory.
-    `pad_months`: extra shards loaded before/after the edge months, so callers
-    processing calendar months never truncate half-open windows near boundaries
-    (e.g., London-local 07:00–10:01 falling entirely inside one UTC day, but
-    the range window of the next local day starting in the previous UTC shard).
+    Single canonical path (audit #2): every shard is read through
+    tick_schema.read_shard, which accepts the canonical column-store layout
+    and legacy layouts, and preserves distinct same-ms quotes (audit #3).
     """
     root = root or shard_root_default()
     pdir = root / pair
@@ -106,16 +104,10 @@ def read_pair(pair: str, start: Optional[pd.Timestamp] = None,
     if not months:
         return pd.DataFrame(columns=["bid", "ask"], index=pd.DatetimeIndex([], tz="UTC"))
 
-    files = [pdir / f"{m}.parquet" for m in months]
-    ds = pads.dataset([str(f) for f in files], format="parquet")
-    table = ds.to_table()
-    # canonical shard layout is a column store: utc_ms(int ms), bid, ask
-    df = table.to_pandas()
-    ms = pd.to_numeric(df["utc_ms"], errors="coerce")
-    out = pd.DataFrame({"bid": df["bid"].to_numpy(), "ask": df["ask"].to_numpy()},
-                       index=pd.to_datetime(ms, unit="ms", utc=True))
-    out = out[~out.index.duplicated(keep="last")].sort_index()
-    out.index.name = None
+    import fxedge.tick_schema as ts
+    frames = [ts.read_shard(pdir / f"{m}.parquet") for m in months]
+    out = pd.concat(frames) if len(frames) > 1 else frames[0]
+    out = out.sort_index()
     if start is not None:
         out = out[out.index >= start]
     if end is not None:

@@ -76,7 +76,13 @@ def fingerprint_store(root: Path) -> Dict:
     return inv
 
 
-def run_ldn_001_v2(out_dir=None, root=None, pairs=None) -> pd.DataFrame:
+def run_ldn_001_v2(out_dir=None, root=None, pairs=None, strict=True) -> pd.DataFrame:
+    """Corrected FX-LDN-001 runner (audit B3/B5 semantics).
+
+    strict=True: a requested pair with no usable data marks universe_complete=False
+    and the manifest says so; callers must not present partial-universe results
+    as full-universe results.
+    """
     root = root or shard_root_default()
     out_dir = Path(out_dir or "runs/FX-LDN-001-v2")
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -85,39 +91,45 @@ def run_ldn_001_v2(out_dir=None, root=None, pairs=None) -> pd.DataFrame:
     manifest = {
         "runner": "fxedge.real_run_v2.run_ldn_001_v2",
         "registry_version": REGISTRY_VERSION,
-        "frozen": {"asia": f"{FRZ.asia_start}-{FRZ.asia_end}", "london": f"{FRZ.london_window_start}-{FRZ.london_window_end}"},
-        "store_fingerprint": None,
+        "requested_pairs": list(pairs or FRZ.primary_universe),
+        "frozen": {"asia": f"{FRZ.asia_start}-{FRZ.asia_end}",
+                   "london": f"{FRZ.london_window_start}-{FRZ.london_window_end}"},
+        "store_fingerprint": fingerprint_store(root),
         "exclusions": {},
+        "expected_sessions": {},
         "unique_sessions": {},
+        "horizon_eligible": {},
     }
-    manifest["store_fingerprint"] = fingerprint_store(root)
 
+    failed_pairs = []
     for pair in (pairs or FRZ.primary_universe):
-        print(f"{pair}: ...", end=" ", flush=True)
-        # month list for this pair
+        print(f"{pair}: ...", flush=True)
         months = sorted(int(re.match(r"^(\d{6})", p.stem).group(1))
                         for p in (root / pair).glob("*.parquet"))
+        if not months:
+            failed_pairs.append(pair)
+            manifest["unique_sessions"][pair] = 0
+            manifest["exclusions"][pair] = "no-shards"
+            continue
         pair_rows = []
         exclusions = {}
+        expected_ct = 0
         for ym in months:
-            # determine days this month's runner owns: the London-local days whose
-            # Asia window starts inside the month (00:00 London) — mapped to UTC days.
             s0, _ = month_bounds(ym)
             days = []
-            for d in pd.date_range(s0, periods=32 + 2, freq="D").date:
+            for d in pd.date_range(s0 - pd.Timedelta(days=2), periods=36, freq="D").date:
                 r = engine.asia_and_london(d)
-                if r is None:
-                    continue
-                if s0 <= r[0].start_utc < month_bounds(ym)[1]:
+                if r and s0 <= r[0].start_utc < month_bounds(ym)[1]:
                     days.append(d)
             if not days:
                 continue
             lo, hi = min(days), max(days)
+            # count expected FX sessions in the owned days (registry window exists Mon-Fri)
+            expected_ct += sum(1 for d in days if engine.is_fx_day(d))
             df = padded_read_days(pair, ym, root)
             if df.empty:
                 exclusions[str(ym)] = "no-ticks-in-padded-window"
                 continue
-            # feed only the padded tick window for the owned days
             a1 = engine.asia_and_london(lo)[0]
             a2 = engine.asia_and_london(hi)[1]
             sl = df.loc[pd.Timestamp(a1.start_utc) - pd.Timedelta(minutes=5):
@@ -126,35 +138,44 @@ def run_ldn_001_v2(out_dir=None, root=None, pairs=None) -> pd.DataFrame:
                 exclusions[str(ym)] = "no-ticks-adjacent"
                 continue
             sess = compute_sessions_coverage(sl, pair, FRZ, engine, lo, hi)
-            if sess.empty:
+            if len(sess) == 0:
                 exclusions[str(ym)] = "no-sessions-computed"
                 continue
-            # split valid / invalid
             inv = sess[~sess["valid"]]
             if len(inv):
                 for reason, n in inv["reason"].value_counts().items():
                     exclusions[f"{ym}:{reason}"] = int(n)
-            pair_rows.append(sess[sess["valid"]])
+            pair_rows.append(sess)          # ALL rows kept: valid + excluded-with-reason
 
         if not pair_rows:
+            if strict:
+                failed_pairs.append(pair)
             manifest["unique_sessions"][pair] = 0
             manifest["exclusions"][pair] = exclusions
-            print("EMPTY — downstream blocked")
+            print(f"{pair}: EMPTY — universe_complete=False")
             continue
 
         pv = pd.concat(pair_rows, ignore_index=True)
-        # enforce uniqueness of (pair, london_date) — audit A1
         n_before = len(pv)
         pv = pv.drop_duplicates(subset=["pair", "london_date"], keep="first").sort_values("london_date")
         if len(pv) != n_before:
             exclusions["duplicate-london_dates"] = n_before - len(pv)
-        manifest["unique_sessions"][pair] = int(len(pv))
-        manifest["exclusions"][pair] = exclusions
+        n_valid = int(pv["valid"].sum())
+        manifest["expected_sessions"][pair] = int(expected_ct)
+        manifest["unique_sessions"][pair] = n_valid
+        manifest["horizon_eligible"][pair] = {str(h): int(pv[f"valid_for_h{h}m"].sum())
+                                              for h in FRZ.forward_horizons_min}
+        if exclusions:
+            manifest["exclusions"][pair] = exclusions
         all_parts.append(pv)
-        print(f"{len(pv)} unique valid sessions ({n_before} pre-dedup)")
+        print(f"{pair}: {n_valid} valid / {expected_ct} expected "
+              f"(recorded-with-reason: {n_before - n_valid})")
 
     sessions = pd.concat(all_parts, ignore_index=True) if all_parts else pd.DataFrame()
-    manifest["total_unique_valid"] = int(len(sessions))
+    manifest["total_unique_valid"] = int(sessions["valid"].sum()) if len(sessions) else 0
+    manifest["total_rows_incl_excluded"] = int(len(sessions))
+    manifest["failed_pairs"] = failed_pairs
+    manifest["universe_complete"] = len(failed_pairs) == 0
     sessions.to_parquet(out_dir / "sessions.parquet")
     (out_dir / "manifest.json").write_text(json.dumps(manifest, indent=2, default=str))
     print("wrote", out_dir)
