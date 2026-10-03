@@ -1,0 +1,15 @@
+# --- data is never committed (1.4B-tick store, regenerable from MT5 export) ---
+fxedge/data/
+*.parquet
+
+# --- experiment run outputs (regenerable; only code + registry docs tracked) ---
+fxedge/runs/
+runs/
+
+# --- python ---
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+
+# --- OS / editor ---
+.DS_Store
