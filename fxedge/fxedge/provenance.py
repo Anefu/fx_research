@@ -24,6 +24,9 @@ METHODOLOGY_MODULES = [
     "fxedge/registry.py",
     "fxedge/ldn_002_004_v2.py",
     "fxedge/real_run_v2.py",
+    "fxedge/real_run.py",
+    "fxedge/snapshot.py",
+    "fxedge/provenance.py",
     "fxedge/data_quality.py",
 ]
 
@@ -58,7 +61,7 @@ def fmt_ci(ci, scale=1.0, digits=3):
 
 
 def render_ldn_002_004_entry(result_json: Path, out_path: Path) -> str:
-    r = json.load(open(result_json))
+    r = json.loads(result_json.read_text())
     jb = r["joint_block_bootstrap"]
     p, ci = jb["point"], jb["ci95"]
     d = r["diagnostics"]
@@ -103,16 +106,18 @@ def render_ldn_002_004_entry(result_json: Path, out_path: Path) -> str:
 
 def render_ldn_001_entry(manifest_path: Path, result_json: Path, out_path: Path) -> str:
     import fxedge.snapshot as snap
-    m = json.load(open(manifest_path))
-    r = json.load(open(result_json))
+    m = json.loads(manifest_path.read_text())
+    r = json.loads(result_json.read_text())
     # audit #4: renderer may only mix fields from artifacts bound to ONE store
     # snapshot with identical per-pair byte counts; refuse to render otherwise.
     mf_bytes = {k: v.get("bytes", v.get("bytes_total"))
                 for k, v in (m.get("store_fingerprint", {}).get("pairs", {}).items())}
     rj_bytes = r.get("store_bytes_per_pair", {})
-    if mf_bytes and rj_bytes and mf_bytes != rj_bytes:
+    if not mf_bytes or not rj_bytes or not r.get("store_snapshot_id") or not m.get("store_fingerprint", {}).get("snapshot_id"):
+        raise RuntimeError("evidence disagreement: snapshot binding missing — not rendered")
+    if mf_bytes != rj_bytes:
         raise RuntimeError(f"evidence disagreement: manifest bytes {mf_bytes} vs result bytes {rj_bytes} — not rendered")
-    if r.get("store_snapshot_id") and m.get("store_fingerprint", {}).get("snapshot_id") not in (r["store_snapshot_id"],):
+    if m["store_fingerprint"]["snapshot_id"] != r["store_snapshot_id"]:
         raise RuntimeError("evidence disagreement: snapshot_id differs between manifest and result — not rendered")
     lines = [
         f"# FX-LDN-001 v3 — Registry Entry (generated from {manifest_path.name} + {result_json.name})",
@@ -123,7 +128,7 @@ def render_ldn_001_entry(manifest_path: Path, result_json: Path, out_path: Path)
         f"| horizon-eligible(60m) {m['horizon_eligible']}",
         f"- **Exclusions (total {r['recorded_exclusions_total']}):** {r['exclusion_reasons']}",
         f"- **Reconciliation:** valid + excluded == expected for every pair",
-        f"- **Store fingerprint:** SHA-256 sample hashes in `(run_dir)/provenance.json`; "
+        f"- **Store fingerprint:** Full SHA-256 content hashes in `(run_dir)/provenance.json`; "
         f"shards {m['store_fingerprint']}",
         "- **Decision:** base rates recorded; no edge claim; pre-registered exclusions held",
     ]

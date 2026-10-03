@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import pandas as pd
 from pathlib import Path
 
 STORE_MANIFEST = "store_manifest.json"
@@ -63,7 +64,7 @@ def load_or_create(root: Path) -> dict:
     a differing re-fingerprint raises instead of silently updating."""
     p = Path(root) / STORE_MANIFEST
     snap = snapshot_id(root)
-    snap["chronology"] = json.loads(p.read_text()).get("chronology_status") if p.exists() else None
+    snap["chronology"] = json.loads(p.read_text()).get("chronology") if p.exists() else None
     if p.exists():
         old = json.load(open(p))
         if "snapshot_id" in old and old["snapshot_id"] != snap["snapshot_id"]:
@@ -81,13 +82,26 @@ def load_or_create(root: Path) -> dict:
 def reject_mismatch(run_snapshot: dict, store_manifest: dict, where: str) -> None:
     """Evidence-agreement check: a rendered artifact may only mix fields from
     artifacts bound to the SAME store snapshot and the same byte counts."""
-    if run_snapshot.get("snapshot_id") != store_manifest.get("snapshot_id"):
-        raise RuntimeError(f"{where}: snapshot_id mismatch — evidence is not from one data snapshot")
-    for pair, rp in run_snapshot.get("pairs", {}).items():
-        sp = store_manifest.get("pairs", {}).get(pair)
-        if sp and rp["bytes"] != sp["bytes"]:
-            raise RuntimeError(f"{where}: byte count mismatch for {pair} "
-                               f"({rp['bytes']} vs {sp['bytes']}) — artifacts disagree")
+    if not run_snapshot.get("snapshot_id") or not store_manifest.get("snapshot_id"):
+        raise RuntimeError(f"{where}: snapshot binding missing")
+    if run_snapshot["snapshot_id"] != store_manifest["snapshot_id"]:
+        raise RuntimeError(f"{where}: snapshot_id mismatch")
+    if not run_snapshot.get("pairs") or run_snapshot["pairs"] != store_manifest.get("pairs"):
+        raise RuntimeError(f"{where}: pair inventory mismatch")
+
+
+def expected_months(root: Path, start_month=None, end_month=None) -> list[int]:
+    """Use a declared span, or the complete calendar span of the store."""
+    months = sorted(int(p.stem) for p in Path(root).glob("*/*.parquet"))
+    if not months and (start_month is None or end_month is None):
+        return []
+    start = start_month if start_month is not None else months[0]
+    end = end_month if end_month is not None else months[-1]
+    first = pd.Period(str(start), freq="M")
+    last = pd.Period(str(end), freq="M")
+    if first > last:
+        raise ValueError("start_month must not follow end_month")
+    return [int(m.strftime("%Y%m")) for m in pd.period_range(first, last, freq="M")]
 
 
 # Back-compat: fingerprint_store now aliases the snapshot (with full hash).

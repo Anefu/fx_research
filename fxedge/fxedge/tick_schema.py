@@ -4,28 +4,9 @@ Representation (audit round-4):
     pandas DataFrame, index = UTC DatetimeIndex (ns),
     columns = [bid, ask, (optional _seq)]; storage = (utc_ms, seq, bid, ask).
 
-Semantics (each point fixes a named audit finding):
-
-- Same-millisecond DISTINCT quotes preserved everywhere. Dedup drops only
-  exact duplicate (ts, bid, ask) records — identical repeated feeds.
-
-- Quote REVISIT (A → B → A) is legal market behavior and is PRESERVED
-  (round-4 finding: v3 collapsed it via unique-subset dedup). Only
-  CONSECUTIVE identical records (A → A) collapse — that is a genuine
-  repeated feed.
-
-- Sequence identity across refreshes (round-4): `_seq` is global and
-  persistent. New rows get fresh, disjoint sequence ranges (a running
-  watermark), and when overlapping exports merge, exact duplicates from
-  the refresh are dropped *without* renumbering existing rows. Sequence
-  ranges are per-source tracked so overlapping exports can't interleave
-  fake order between them.
-
-- Chronology recovery (round-4): historical shards that were price-sorted
-  before seq tracking existed are marked `chronology=recovered-unordered`
-  in the store manifest; their intra-ms order is unknown by construction.
-  The only way to re-derive true arrival order is re-export from the
-  source CSVs; `recover_from_exports()` does exactly that.
+Refreshes preserve quote occurrence order. Conflicting overlaps fail and
+require explicit recovery from complete source exports. Recovery replaces
+stored order after checking that no stored quote occurrence is lost.
 """
 from __future__ import annotations
 
@@ -79,43 +60,31 @@ def tick_dedup_exact_global(df: pd.DataFrame) -> pd.DataFrame:
 
 def merge_refresh(existing: pd.DataFrame, incoming: pd.DataFrame,
                   watermark: int | None = None) -> tuple[pd.DataFrame, int]:
-    """Merge a refresh export into the canonical store.
+    """Append a source export only when its overlap agrees in arrival order.
 
-    - incoming rows are assigned NEW disjoint seq numbers (above the
-      existing watermark), preserving source identity (round-4 fix).
-    - exact re-transmissions (identical ts/bid/ask) are dropped from the
-      incoming frame first (overlapping export, not a market revisit).
-    - the existing frame is NEVER resequenced; the union of seq sets stays
-      disjoint by source.
-    Returns (merged, new_watermark).
+    Repeated quotes are matched as a sequence, preserving A→B→A. Conflicting
+    or historical inserts require a complete export and explicit recovery.
     """
-    if watermark is None:
-        watermark = int(existing[SEQ_COL].max()) if SEQ_COL in existing.columns and len(existing) else -1
-    incoming = incoming.copy()
-    if SEQ_COL in existing.columns and len(existing):
-        key = ["bid", "ask"]
-        er = existing.reset_index()
-        ex_idx = er.columns[0]
-        # drop re-transmissions: identical (ts,bid,ask) already present
-        existing_keys = set(zip(er[ex_idx].view("int64") // 1_000_000
-                                if isinstance(pd.api.types.is_datetime64_any_dtype(er[ex_idx]), bool) else er[ex_idx],
-                                ) ) if False else set()
-        # (set-intersect approach is too slow/memory-heavy on 300M rows;
-        #  use merge indicator instead)
-        er = er[[ex_idx] + key]
-        ir = incoming.reset_index()
-        in_idx = ir.columns[0]
-        merged_keys = er.merge(ir, left_on=[ex_idx] + key, right_on=[in_idx] + key,
-                               how="inner", indicator=True)
-        dup_mask = incoming.index.isin(
-            pd.DatetimeIndex(merged_keys[in_idx])) if len(merged_keys) else pd.Series(False, index=incoming.index)
-        n_dropped = int(dup_mask.sum())
-        incoming = incoming[~dup_mask]
-        if n_dropped:
-            print(f"    [merge-refresh] {n_dropped:,} re-transmitted records dropped (overlap)")
-    incoming[SEQ_COL] = np.arange(watermark + 1, watermark + 1 + len(incoming), dtype="int64")
-    out = pd.concat([existing, incoming]).sort_values([SEQ_COL], kind="mergesort")
-    return out, int(out[SEQ_COL].max())
+    existing = existing.sort_index(kind="mergesort")
+    incoming = incoming.sort_index(kind="mergesort")
+    current = int(existing[SEQ_COL].max()) if len(existing) else -1
+    watermark = max(current, watermark if watermark is not None else -1)
+    if len(existing) and len(incoming):
+        if incoming.index[0] < existing.index[0]:
+            raise ValueError("refresh starts before stored history; use recover_from_exports")
+        overlap = existing.loc[incoming.index[0]:incoming.index[-1]]
+        repeated = incoming.loc[:existing.index[-1]]
+        n = len(overlap)
+        same = (len(repeated) >= n and
+                overlap.index.equals(repeated.index[:n]) and
+                np.array_equal(overlap[TICK_COLUMNS].to_numpy(),
+                               repeated[TICK_COLUMNS].iloc[:n].to_numpy()))
+        if not same or (len(repeated) > n and incoming.index[len(incoming) - 1] < existing.index[-1]):
+            raise ValueError("refresh overlap disagrees with source order; use recover_from_exports")
+        incoming = incoming.iloc[n:]
+    incoming = with_seq(incoming, watermark + 1)
+    out = pd.concat([existing, incoming])
+    return out, watermark + len(incoming)
 
 
 def to_storage(df: pd.DataFrame) -> pd.DataFrame:
@@ -189,9 +158,8 @@ def recover_from_exports(export_dir: Path, shard_root: Path, pairs=None) -> dict
     """Rebuild shards' chronology from the original export CSVs (round-4 fix).
 
     For each pair-month file present in the export dir, re-read with true
-    arrival order, merge into the store via merge_refresh (existing seq
-    preserved, re-transmissions dropped), and re-write. Only run when the
-    exports still exist on disk.
+    arrival order and replace the old shard after checking that every stored
+    quote occurrence is present. Sequence numbers are rebuilt from file order.
     """
     import re
     fname_re = re.compile(r"^(?P<pair>[A-Z]{6})_ticks_(?P<yyyymm>\d{6})\.csv$")
@@ -205,14 +173,26 @@ def recover_from_exports(export_dir: Path, shard_root: Path, pairs=None) -> dict
             continue
         shard = shard_root / pair / f"{yyyymm}.parquet"
         fresh = read_mt5_csv_frame(csv)
+        if fresh.empty:
+            raise ValueError(f"empty recovery export: {csv}")
         if shard.exists():
             existing = read_shard(shard)
-            merged, wm = merge_refresh(existing, fresh)
-            write_shard(merged, shard)
-            out[f"{pair}/{yyyymm}"] = {"merged_rows": int(len(merged)), "watermark": wm}
-        else:
-            write_shard(fresh, shard)
-            out[f"{pair}/{yyyymm}"] = {"merged_rows": int(len(fresh)), "watermark": int(fresh[SEQ_COL].max())}
+            # Require every stored quote occurrence, even when its order was
+            # corrupted. A partial export must never erase stored history.
+            keys = lambda df: pd.DataFrame({"ts": df.index.asi8,
+                                            "bid": df.bid.to_numpy(), "ask": df.ask.to_numpy()})
+            old_counts = keys(existing).value_counts()
+            new_counts = keys(fresh).value_counts().reindex(old_counts.index, fill_value=0)
+            if (new_counts < old_counts).any():
+                raise ValueError(f"recovery export lacks stored quote occurrences: {csv}")
+        shard.parent.mkdir(parents=True, exist_ok=True)
+        write_shard(fresh, shard)
+        out[f"{pair}/{yyyymm}"] = {"rebuilt_rows": len(fresh), "chronology": "source-arrival"}
+        mp = shard_root / STORE_MANIFEST
+        manifest = json.loads(mp.read_text()) if mp.exists() else {}
+        manifest.setdefault("shards", {})[f"{pair}/{yyyymm}"] = {"chronology": "source-arrival"}
+        # Old bindings are retained: consumers reject them until a fresh run.
+        mp.write_text(json.dumps(manifest, indent=2))
     return out
 
 
