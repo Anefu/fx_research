@@ -2,9 +2,13 @@
 fxedge/data/
 *.parquet
 
-# --- experiment run outputs (regenerable; only code + registry docs tracked) ---
+# --- experiment run outputs (regenerable; decisions + outcomes live in fxedge/registry/) ---
 fxedge/runs/
 runs/
+
+# --- keep registry outcomes tracked (decisions + provenance only, no big artifacts) ---
+!fxedge/registry/
+!fxedge/registry/**
 
 # --- python ---
 __pycache__/

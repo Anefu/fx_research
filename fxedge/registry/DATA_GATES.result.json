@@ -1,0 +1,65 @@
+{
+  "registry_version": "1.0",
+  "pairs": {
+    "EURUSD": {
+      "negative_spread": 0,
+      "jump_gt_2pct": 0,
+      "bars_checked": 765988,
+      "high_mismatch": 0,
+      "flat_mismatch": 0,
+      "total_ticks": 266032603,
+      "longest_gap_min": 4680.0,
+      "DATA_pass": true
+    },
+    "GBPUSD": {
+      "negative_spread": 0,
+      "jump_gt_2pct": 0,
+      "bars_checked": 765981,
+      "high_mismatch": 0,
+      "flat_mismatch": 0,
+      "total_ticks": 327060597,
+      "longest_gap_min": 4681.0,
+      "DATA_pass": true
+    },
+    "USDJPY": {
+      "negative_spread": 0,
+      "jump_gt_2pct": 0,
+      "bars_checked": 766082,
+      "high_mismatch": 0,
+      "flat_mismatch": 0,
+      "total_ticks": 316788942,
+      "longest_gap_min": 4680.0,
+      "DATA_pass": true
+    },
+    "AUDUSD": {
+      "negative_spread": 0,
+      "jump_gt_2pct": 0,
+      "bars_checked": 766041,
+      "high_mismatch": 0,
+      "flat_mismatch": 0,
+      "total_ticks": 225244044,
+      "longest_gap_min": 4681.0,
+      "DATA_pass": true
+    },
+    "USDCAD": {
+      "negative_spread": 0,
+      "jump_gt_2pct": 0,
+      "bars_checked": 766035,
+      "high_mismatch": 0,
+      "flat_mismatch": 0,
+      "total_ticks": 239492489,
+      "longest_gap_min": 4680.0,
+      "DATA_pass": true
+    },
+    "USDCHF": {
+      "negative_spread": 0,
+      "jump_gt_2pct": 0,
+      "bars_checked": 766068,
+      "high_mismatch": 0,
+      "flat_mismatch": 0,
+      "total_ticks": 202804859,
+      "longest_gap_min": 4680.0,
+      "DATA_pass": true
+    }
+  }
+}
