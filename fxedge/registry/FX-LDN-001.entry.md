@@ -42,3 +42,7 @@ mis-specified.
 **Pre-registered exclusions (spec §8) unchanged:** no entry rule, no stop
 loss, no take profit, no ICT concepts, no optimization. Any reinterpretation
 of these numbers as a signal requires a new experiment ID (FX-LDN-002+).
+> **[SUPERSEDED 2026-10-02]** Contains the v1 sampling bug (duplicate/truncated month-end
+> sessions, non-unique dates, unrestricted asof, invalid per-group bootstrap, wrong 3/7
+> range null). Superseded by this directory's v2 files and runs/FX-LDN-00*-v2 reruns.
+> Retained permanently per registry section 7.

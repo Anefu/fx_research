@@ -20,6 +20,7 @@ from typing import Optional
 import pyarrow as pa
 import pyarrow.csv as pacsv
 import pyarrow.parquet as pq
+import pandas as pd
 
 CSV_GLOB = "*_ticks_*.csv"
 FNAME_RE = re.compile(r"^(?P<pair>[A-Z]{6})_ticks_(?P<yyyymm>\d{6})\.csv$")
@@ -38,27 +39,35 @@ def read_mt5_csv_fast(path: Path) -> pa.Table:
     return t.sort_by([("utc_ms", "ascending")])
 
 
-def table_to_frame(t: pa.Table):
-    import pandas as pd
+def table_to_frame(t: pa.Table) -> pd.DataFrame:
+    """Tick-level dedup on (timestamp, bid, ask) — distinct quotes sharing a
+    millisecond are preserved (spec section 6: never discard observations)."""
     df = t.to_pandas()
+    n_before = len(df)
+    df = df.drop_duplicates(subset=["utc_ms", "bid", "ask"], keep="first")
+    n_dup = n_before - len(df)
+    if n_dup:
+        print(f"    [dedup] {n_dup:,} exact-duplicate (ts,bid,ask) rows dropped", flush=True)
     idx = pd.to_datetime(df["utc_ms"], unit="ms", utc=True)
     out = pd.DataFrame({"bid": df["bid"].to_numpy(), "ask": df["ask"].to_numpy()}, index=idx)
-    return out[~out.index.duplicated(keep="last")].sort_index()
+    return out.sort_index()
 
 
 def convert_one(csv: Path, shard_root: Path) -> tuple:
     m = FNAME_RE.match(csv.name)
     pair, yyyymm = m.group("pair"), m.group("yyyymm")
-    df = table_to_frame(read_mt5_csv_fast(csv))
+    df = table_to_frame(read_mt5_csv_fast(csv))   # quote-level dedup on (ts,bid,ask)
     pdir = shard_root / pair
     pdir.mkdir(parents=True, exist_ok=True)
     shard = pdir / f"{yyyymm}.parquet"
     n_overlap = 0
     if shard.exists():
         old = pd.read_parquet(shard)
-        overlap = old.index.intersection(df.index)
-        n_overlap = len(overlap)
-        df = pd.concat([old[~old.index.isin(df.index)], df]).sort_index()
+        merged = pd.concat([old, df])
+        n_dup = int(merged.index.duplicated(keep="last").sum())
+        merged = merged[~merged.index.duplicated(keep="last")]  # last quote wins on identical ms
+        n_overlap = len(old) + len(df) - len(merged)
+        df = merged.sort_index()
     df.to_parquet(shard)
     csv.unlink()
     return pair, yyyymm, len(df), n_overlap

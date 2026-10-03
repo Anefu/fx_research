@@ -62,9 +62,46 @@ def read_pair(pair: str, start: Optional[pd.Timestamp] = None,
         raise FileNotFoundError(f"no shard dir for {pair}: {pdir}")
 
     if start is None or end is None:
-        months = shard_months(pdir)                      # full history
+        months = all_months                      # full history
     else:
         months = [m for m in months_for_range(start, end) if m in set(shard_months(pdir))]
+
+    if not months:
+        return pd.DataFrame(columns=["bid", "ask"], index=pd.DatetimeIndex([], tz="UTC"))
+
+def read_pair(pair: str, start: Optional[pd.Timestamp] = None,
+              end: Optional[pd.Timestamp] = None,
+              root: Optional[Path] = None,
+              pad_months: int = 1) -> pd.DataFrame:
+    """Read one pair's shard tree for [start, end] (UTC, inclusive), as bid/ask frame.
+
+    Reads only the shards overlapping the range — bounded memory.
+    `pad_months`: extra shards loaded before/after the edge months, so callers
+    processing calendar months never truncate half-open windows near boundaries
+    (e.g., London-local 07:00–10:01 falling entirely inside one UTC day, but
+    the range window of the next local day starting in the previous UTC shard).
+    """
+    root = root or shard_root_default()
+    pdir = root / pair
+    if not pdir.exists():
+        raise FileNotFoundError(f"no shard dir for {pair}: {pdir}")
+
+    all_months = shard_months(pdir)
+    if start is None or end is None:
+        months = all_months                      # full history
+    else:
+        keep = set(all_months)
+        wanted = set(months_for_range(start, end)) & keep
+        months = set()
+        for m in wanted:
+            y, mm = divmod(m, 100)               # pad arithmetic on month numbers,
+            for delta in range(-pad_months, pad_months + 1):  # never on yyyymm ints
+                total = y * 12 + (mm - 1) + delta
+                yy, mmm = divmod(total, 12)
+                k_adj = yy * 100 + (mmm + 1)
+                if k_adj in keep:
+                    months.add(k_adj)
+        months = sorted(months)
 
     if not months:
         return pd.DataFrame(columns=["bid", "ask"], index=pd.DatetimeIndex([], tz="UTC"))
@@ -72,16 +109,12 @@ def read_pair(pair: str, start: Optional[pd.Timestamp] = None,
     files = [pdir / f"{m}.parquet" for m in months]
     ds = pads.dataset([str(f) for f in files], format="parquet")
     table = ds.to_table()
+    # canonical shard layout is a column store: utc_ms(int ms), bid, ask
     df = table.to_pandas()
-    if "utc_ms" in df.columns:
-        idx = pd.to_datetime(df["utc_ms"], unit="ms", utc=True)
-        out = pd.DataFrame({"bid": df["bid"].to_numpy(), "ask": df["ask"].to_numpy()}, index=idx)
-    else:
-        # shard already parsed (tz-aware index, bid/ask columns)
-        out = df[["bid", "ask"]]
+    ms = pd.to_numeric(df["utc_ms"], errors="coerce")
+    out = pd.DataFrame({"bid": df["bid"].to_numpy(), "ask": df["ask"].to_numpy()},
+                       index=pd.to_datetime(ms, unit="ms", utc=True))
     out = out[~out.index.duplicated(keep="last")].sort_index()
-    if out.index.tz is None:
-        out.index = out.index.tz_localize("UTC")
     out.index.name = None
     if start is not None:
         out = out[out.index >= start]
