@@ -24,14 +24,29 @@ from fxedge.shard_reader import read_pair, shard_root_default
 UTC = "UTC"
 
 
+def month_bounds(ym: int):
+    """Explicit calendar-month boundaries (audit round-4 fix #3: no MonthEnd)."""
+    y, m = divmod(ym, 100)
+    start = pd.Timestamp(f"{y:04d}-{m:02d}-01", tz="UTC")
+    ny, nm = (y + 1, 1) if m == 12 else (y, m + 1)
+    end = pd.Timestamp(f"{ny:04d}-{nm:02d}-01", tz="UTC") - pd.Timedelta(microseconds=1)
+    return start, end
+
+
 def gates_for_pair(pair: str, root: Path, months: list) -> dict:
-    """DATA-001/002/005 over the pair's tick history, per shard group."""
+    """DATA-001/002/005 over the pair's tick history, per shard group.
+
+    Audit round-4: calendar bounds via month_bounds(); empty months are
+    counted as missing coverage, and a pair with zero checked bars fails
+    the gate (no silent PASS on empty stores).
+    """
     res = {"negative_spread": 0, "jump_gt_2pct": 0, "bars_checked": 0, "high_mismatch": 0, "flat_mismatch": 0,
-           "total_ticks": 0, "longest_gap_min": 0.0}
+           "total_ticks": 0, "longest_gap_min": 0.0, "months_missing": []}
     for ym in months:
-        df = read_pair(pair, pd.Timestamp(str(ym) + "01", tz="UTC"),
-                       pd.Timestamp(str(ym) + "28", tz="UTC") + pd.offsets.MonthEnd(1), root)
+        s, e = month_bounds(ym)
+        df = read_pair(pair, s, e, root)
         if df.empty:
+            res["months_missing"].append(str(ym))
             continue
         res["total_ticks"] += len(df)
         # DATA-002 (vectorized on the shard)
@@ -71,7 +86,8 @@ def run(pair_list=None, root=None, out_dir=None):
         months = sorted(int(m) for m in [p.stem for p in pdir.glob("*.parquet")])
         r = gates_for_pair(pair, root, months)
         r["DATA_pass"] = (r["negative_spread"] == 0 and r["jump_gt_2pct"] == 0 and
-                          r["high_mismatch"] == 0 and r["flat_mismatch"] == 0)
+                          r["high_mismatch"] == 0 and r["flat_mismatch"] == 0 and
+                          r["bars_checked"] > 0 and len(r["months_missing"]) == 0)
         report["pairs"][pair] = r
         print(f"{pair}: ticks={r['total_ticks']:,} neg-spread={r['negative_spread']} "
               f"jump2%={r['jump_gt_2pct']} bar-mismatch(h/l)={r['high_mismatch']}/{r['flat_mismatch']} "

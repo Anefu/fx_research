@@ -1,126 +1,85 @@
 {
-  "experiment": "FX-LDN-001-v2",
-  "git_revision": "30e4363614c807e3c30ca5322fec55e0318e4d3d",
-  "universe_complete": true,
-  "expected_per_pair": {
-    "EURUSD": 2609,
-    "GBPUSD": 2609,
-    "USDJPY": 2609,
-    "AUDUSD": 2609,
-    "USDCAD": 2609,
-    "USDCHF": 2609
+ "experiment": "FX-LDN-001-v2",
+ "git_revision": "4abafeb43bf3b8532cf0f112ac20d6997897adfa",
+ "module_sha256": {
+  "fxedge/tick_schema.py": "0d528227fa55e2dc090d33804a7bd6d0973283436f46780534d2549d76d8c4da",
+  "fxedge/bars.py": "37a2cabd402694c891d71466e1bee684e352c81c5b263c76d3f299b9ffe187df",
+  "fxedge/sessions.py": "ef5fcded69106dd00327f8972fdea1f2749c11b719fac09dac93f9ea0efd1375",
+  "fxedge/sessions_cov.py": "470e4b0f6566d3c012c9bcadf987985db697a645dfd77424f3a06027400bf898",
+  "fxedge/shard_reader.py": "6041df528d9bc7a1f6076ed4d177c2e6c5393f68e5e67f15087e9ec452e0afb4",
+  "fxedge/stream_ingest.py": "ddf223869334eb532ffda65e20b54477a2d5a856f8b95123d6966a29308f6832",
+  "fxedge/registry.py": "c1c7cfe6f6ad53f4fd0aea045012b2ad8294c244d8d9cb446a55c4b525835206",
+  "fxedge/ldn_002_004_v2.py": "c659eaa8b669e85342201c0f580301e30b9f402da3bac594734f4fd9f628e5e1",
+  "fxedge/real_run_v2.py": "3b355a323b574b7b4e48ef3d38424f0d5b60ce73bfb985bf5fcf72caae806e47",
+  "fxedge/data_quality.py": "a88875942a6f3c027cfaf1176cf0ae05a6be00ce26f35ae228a44d8a76102c2b"
+ },
+ "store_snapshot_id": "fa7a93acb7f73558f0726ad3fe97f74311610a464f83d66d418c0353f0a7e4aa",
+ "store_bytes_per_pair": {
+  "AUDUSD": 2498299672,
+  "EURUSD": 2978292134,
+  "GBPUSD": 3666437912,
+  "USDCAD": 2682867717,
+  "USDCHF": 2294554698,
+  "USDJPY": 3555233846
+ },
+ "universe_complete": true,
+ "expected_per_pair": {
+  "EURUSD": 2609,
+  "GBPUSD": 2609,
+  "USDJPY": 2609,
+  "AUDUSD": 2609,
+  "USDCAD": 2609,
+  "USDCHF": 2609
+ },
+ "valid_per_pair": {
+  "EURUSD": 2494,
+  "GBPUSD": 2493,
+  "USDJPY": 2495,
+  "AUDUSD": 2491,
+  "USDCAD": 2483,
+  "USDCHF": 2479
+ },
+ "recorded_exclusions_total": 719,
+ "exclusion_reasons": {
+  "out-of-slice": 474,
+  "window-coverage": 245
+ },
+ "horizon_eligible": {
+  "EURUSD": {
+   "15": 2494,
+   "30": 2494,
+   "60": 2493,
+   "180": 2494
   },
-  "valid_per_pair": {
-    "EURUSD": 2494,
-    "GBPUSD": 2493,
-    "USDJPY": 2495,
-    "AUDUSD": 2491,
-    "USDCAD": 2483,
-    "USDCHF": 2479
+  "GBPUSD": {
+   "15": 2493,
+   "30": 2493,
+   "60": 2492,
+   "180": 2493
   },
-  "recorded_exclusions_total": 719,
-  "exclusion_reasons": {
-    "out-of-slice": 474,
-    "window-coverage": 245
+  "USDJPY": {
+   "15": 2494,
+   "30": 2494,
+   "60": 2493,
+   "180": 2494
   },
-  "horizon_eligible": {
-    "EURUSD": {
-      "15": 2494,
-      "30": 2494,
-      "60": 2493,
-      "180": 2494
-    },
-    "GBPUSD": {
-      "15": 2493,
-      "30": 2493,
-      "60": 2492,
-      "180": 2493
-    },
-    "USDJPY": {
-      "15": 2494,
-      "30": 2494,
-      "60": 2493,
-      "180": 2494
-    },
-    "AUDUSD": {
-      "15": 2491,
-      "30": 2491,
-      "60": 2490,
-      "180": 2491
-    },
-    "USDCAD": {
-      "15": 2483,
-      "30": 2483,
-      "60": 2482,
-      "180": 2483
-    },
-    "USDCHF": {
-      "15": 2478,
-      "30": 2478,
-      "60": 2477,
-      "180": 2478
-    }
+  "AUDUSD": {
+   "15": 2491,
+   "30": 2491,
+   "60": 2490,
+   "180": 2491
   },
-  "store_fingerprint": {
-    "AUDUSD": {
-      "n_shards": 120,
-      "first_month": 201611,
-      "last_month": 202610,
-      "bytes_total": 1570215949,
-      "hash_first_shard_head": "33a8150da0b8c1c9f9702bf97bb94bcd12087ca849f31fae1dde0bfe21733cd2",
-      "hash_last_shard_head": "4b41ee5ce945a0c79d3dca41a023731e111fa4d69db7358463afd7eb849b47d4"
-    },
-    "EURUSD": {
-      "n_shards": 120,
-      "first_month": 201611,
-      "last_month": 202610,
-      "bytes_total": 1875767847,
-      "hash_first_shard_head": "32152ad018ce7e3fb6ad4d5ca3deac7eb114aed5768192ebdc5606fa3ad14d1f",
-      "hash_last_shard_head": "0f5c4395c015799da3ae7b0afbcff82aeb12158c10eeb177279599affc74a346"
-    },
-    "GBPUSD": {
-      "n_shards": 120,
-      "first_month": 201611,
-      "last_month": 202610,
-      "bytes_total": 2311162309,
-      "hash_first_shard_head": "27cf1aa9f9e33b7b2b338654437aab57ab56c0a8e109e9bcebe84357065896aa",
-      "hash_last_shard_head": "75f5ffd9a51ce8fceaeb037d5acdde80e042ce22b84c87a9c154b9ba40b3779b"
-    },
-    "USDCAD": {
-      "n_shards": 120,
-      "first_month": 201611,
-      "last_month": 202610,
-      "bytes_total": 1692632398,
-      "hash_first_shard_head": "0ef6f798dd9a8a5698e20ed43d1987e00368beca6c1bd97be8a36374c262bcd6",
-      "hash_last_shard_head": "ffe084fc8bc7274d892fae6d4a46fec1763bb2da1a76e0fa07fb7474e629a1b6"
-    },
-    "USDCHF": {
-      "n_shards": 120,
-      "first_month": 201611,
-      "last_month": 202610,
-      "bytes_total": 1445832695,
-      "hash_first_shard_head": "be45617f857d230b58b14ba7ae1bfd0546fd8fadb75ee327de58047f2a608f77",
-      "hash_last_shard_head": "8c821acd56aa224f524042f0f821934215f79e757a6863ebe22fe11200e2d2ec"
-    },
-    "USDJPY": {
-      "n_shards": 120,
-      "first_month": 201611,
-      "last_month": 202610,
-      "bytes_total": 2242386152,
-      "hash_first_shard_head": "3f4d651d6c5d4b75773e0709b66547e8b775a289295a8e7a4cb845660cbc01ba",
-      "hash_last_shard_head": "21da297010db2f405520f40e033b9eaf0501e31fe2bb0ea7016ab380caf70f70"
-    }
+  "USDCAD": {
+   "15": 2483,
+   "30": 2483,
+   "60": 2482,
+   "180": 2483
   },
-  "module_sha256": {
-    "fxedge/tick_schema.py": "4803affbd841b0273a6359be1ca2192d2f3506e1af40de8bdf2038a8564feb91",
-    "fxedge/bars.py": "37a2cabd402694c891d71466e1bee684e352c81c5b263c76d3f299b9ffe187df",
-    "fxedge/sessions.py": "ef5fcded69106dd00327f8972fdea1f2749c11b719fac09dac93f9ea0efd1375",
-    "fxedge/sessions_cov.py": "470e4b0f6566d3c012c9bcadf987985db697a645dfd77424f3a06027400bf898",
-    "fxedge/shard_reader.py": "6041df528d9bc7a1f6076ed4d177c2e6c5393f68e5e67f15087e9ec452e0afb4",
-    "fxedge/stream_ingest.py": "d98a71eeb7605f10a12ba32f4f68d032006a628a07eb4d828d7d4b52666876ef",
-    "fxedge/registry.py": "c1c7cfe6f6ad53f4fd0aea045012b2ad8294c244d8d9cb446a55c4b525835206",
-    "fxedge/ldn_002_004_v2.py": "0f94224126403f1e9788eda3cb5c667c412d9ef1d8da1f3f8173a92de23054a7",
-    "fxedge/real_run_v2.py": "050cea3099bf58c1816b236ea719609174955b1953ee2a8b087554298d0124c8",
-    "fxedge/data_quality.py": "a88875942a6f3c027cfaf1176cf0ae05a6be00ce26f35ae228a44d8a76102c2b"
+  "USDCHF": {
+   "15": 2478,
+   "30": 2478,
+   "60": 2477,
+   "180": 2478
   }
+ }
 }

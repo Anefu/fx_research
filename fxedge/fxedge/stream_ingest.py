@@ -24,7 +24,13 @@ STALE_SECONDS = 120.0
 
 
 def convert_one(csv: Path, shard_root: Path) -> tuple:
-    """Month-CSV -> canonical shard; merge with existing under one schema."""
+    """Month-CSV -> canonical shard.
+
+    Refresh semantics (audit round-4): existing shard rows keep their seq
+    identity; re-transmitted (overlapping) records are dropped from the
+    incoming frame; new source rows get fresh disjoint seq numbers.
+    """
+    import fxedge.tick_schema as ts_
     m = FNAME_RE.match(csv.name)
     pair, yyyymm = m.group("pair"), m.group("yyyymm")
     df = ts.read_mt5_csv_frame(csv)
@@ -34,13 +40,16 @@ def convert_one(csv: Path, shard_root: Path) -> tuple:
     n_overlap = 0
     if shard.exists():
         old = ts.read_shard(shard)
-        merged = pd.concat([old, df])
-        merged = ts.tick_dedup(merged.sort_index())
-        n_overlap = len(old) + len(df) - len(merged)
-        df = merged
+        df, _wm = ts_.merge_refresh(old, df)
+        n_overlap = len(old) + len(df) - len(old) - _count_new(old, df)
+        df = df
     ts.write_shard(df, shard)
     csv.unlink()
     return pair, yyyymm, len(df), n_overlap
+
+
+def _count_new(old, merged):
+    return len(merged) - len(old)
 
 
 def convert_idle(export_dir: Path, shard_root: Path, pairs: Optional[list] = None,

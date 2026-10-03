@@ -102,8 +102,18 @@ def render_ldn_002_004_entry(result_json: Path, out_path: Path) -> str:
 
 
 def render_ldn_001_entry(manifest_path: Path, result_json: Path, out_path: Path) -> str:
+    import fxedge.snapshot as snap
     m = json.load(open(manifest_path))
     r = json.load(open(result_json))
+    # audit #4: renderer may only mix fields from artifacts bound to ONE store
+    # snapshot with identical per-pair byte counts; refuse to render otherwise.
+    mf_bytes = {k: v.get("bytes", v.get("bytes_total"))
+                for k, v in (m.get("store_fingerprint", {}).get("pairs", {}).items())}
+    rj_bytes = r.get("store_bytes_per_pair", {})
+    if mf_bytes and rj_bytes and mf_bytes != rj_bytes:
+        raise RuntimeError(f"evidence disagreement: manifest bytes {mf_bytes} vs result bytes {rj_bytes} — not rendered")
+    if r.get("store_snapshot_id") and m.get("store_fingerprint", {}).get("snapshot_id") not in (r["store_snapshot_id"],):
+        raise RuntimeError("evidence disagreement: snapshot_id differs between manifest and result — not rendered")
     lines = [
         f"# FX-LDN-001 v3 — Registry Entry (generated from {manifest_path.name} + {result_json.name})",
         "",

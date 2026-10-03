@@ -1,23 +1,32 @@
 {
   "experiment": "FX-LDN-002-004-v2",
-  "git_revision": "30e4363614c807e3c30ca5322fec55e0318e4d3d",
+  "git_revision": "4abafeb43bf3b8532cf0f112ac20d6997897adfa",
   "module_sha256": {
-    "fxedge/tick_schema.py": "4803affbd841b0273a6359be1ca2192d2f3506e1af40de8bdf2038a8564feb91",
+    "fxedge/tick_schema.py": "0d528227fa55e2dc090d33804a7bd6d0973283436f46780534d2549d76d8c4da",
     "fxedge/bars.py": "37a2cabd402694c891d71466e1bee684e352c81c5b263c76d3f299b9ffe187df",
     "fxedge/sessions.py": "ef5fcded69106dd00327f8972fdea1f2749c11b719fac09dac93f9ea0efd1375",
     "fxedge/sessions_cov.py": "470e4b0f6566d3c012c9bcadf987985db697a645dfd77424f3a06027400bf898",
     "fxedge/shard_reader.py": "6041df528d9bc7a1f6076ed4d177c2e6c5393f68e5e67f15087e9ec452e0afb4",
-    "fxedge/stream_ingest.py": "d98a71eeb7605f10a12ba32f4f68d032006a628a07eb4d828d7d4b52666876ef",
+    "fxedge/stream_ingest.py": "ddf223869334eb532ffda65e20b54477a2d5a856f8b95123d6966a29308f6832",
     "fxedge/registry.py": "c1c7cfe6f6ad53f4fd0aea045012b2ad8294c244d8d9cb446a55c4b525835206",
-    "fxedge/ldn_002_004_v2.py": "0f94224126403f1e9788eda3cb5c667c412d9ef1d8da1f3f8173a92de23054a7",
-    "fxedge/real_run_v2.py": "050cea3099bf58c1816b236ea719609174955b1953ee2a8b087554298d0124c8",
+    "fxedge/ldn_002_004_v2.py": "c659eaa8b669e85342201c0f580301e30b9f402da3bac594734f4fd9f628e5e1",
+    "fxedge/real_run_v2.py": "3b355a323b574b7b4e48ef3d38424f0d5b60ce73bfb985bf5fcf72caae806e47",
     "fxedge/data_quality.py": "a88875942a6f3c027cfaf1176cf0ae05a6be00ce26f35ae228a44d8a76102c2b"
+  },
+  "store_snapshot_id": "fa7a93acb7f73558f0726ad3fe97f74311610a464f83d66d418c0353f0a7e4aa",
+  "store_bytes_per_pair": {
+    "AUDUSD": 2498299672,
+    "EURUSD": 2978292134,
+    "GBPUSD": 3666437912,
+    "USDCAD": 2682867717,
+    "USDCHF": 2294554698,
+    "USDJPY": 3555233846
   },
   "decision_rule": "L1 = median-ER CI excludes 0 positively AND |R_60| and |R_180| CIs exclude 0 positively AND >=5/6 pair sign agreement on |R_60|; else branch fails/mechanical.",
   "bootstrap": {
     "B": 2000,
     "L_days": 20,
-    "scheme": "disjoint-partition moving-block, joint 6-pair panel",
+    "scheme": "disjoint-partition moving-block (length-guaranteed), joint 6-pair panel",
     "seed": 42
   },
   "diagnostics": {

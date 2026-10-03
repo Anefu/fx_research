@@ -1,6 +1,6 @@
 # Generation-1 Outcomes — v2 (corrected reruns, valid inference)
 
-Audits: v1 superseded (sampling bug); v2-interim superseded (single-block bootstrap); v3 = round-3 audit fixes (causal same-ms ordering in bars, disjoint-block length guarantee, precondition gate, JSON-generated entries, provenance binding).
+Audits: v1 superseded (sampling bug); v2-interim superseded (single-block bootstrap); v3 = rounds 3-4 (causal same-ms ordering via _seq; length-guaranteed disjoint-block bootstrap; promotion gate on FRZ.primary_universe with table-manifest reconciliation; DATA gates with calendar bounds + zero-coverage failure; store snapshot binding fa7a93acb7f7 + evidence-agreement checks; quote-revisit A→B→A preserved; refresh merges keep seq identity).
 Current entries carry valid session accounting (unique dates, exclusions recorded)
 and valid joint-panel inference. Failed experiments retained permanently (registry §7).
 

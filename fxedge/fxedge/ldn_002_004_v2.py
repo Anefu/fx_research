@@ -150,42 +150,75 @@ def mw_u_p(a, b):
 
 
 def preconditions(out_root="runs", required_universe=None) -> dict:
-    """Audit #2: validate manifest/universe/DATA gates/uniqueness BEFORE inference.
+    """Precondition gate (audit rounds 3+4).
 
-    Returns a dict of checks; raises on failure unless explicitly overridden.
+    Hard requirements before ANY inference:
+      1. FX-LDN-001-v2 manifest exists
+      2. Required universe == FRZ.primary_universe (promotion gate; a
+         narrower run may only be allowed by explicitly passing
+         required_universe, and the result is then marked non-promotable)
+      3. The SESSION TABLE's actual pairs == the required universe, and
+         table counts agree with manifest counts (audit: five-pair table
+         under a six-pair manifest previously slipped through)
+      4. manifest universe_complete=True and zero-requested-missing
+      5. DATA gates PASS for every required pair (with coverage>0)
+      6. (pair, london_date) uniqueness in the table
+      7. store snapshot agreement between manifest and store_manifest.json
     """
+    from fxedge.registry import FRZ
     base = Path(out_root)
     manifest_path = base / "FX-LDN-001-v2" / "manifest.json"
     if not manifest_path.exists():
         raise RuntimeError("precondition: FX-LDN-001-v2 manifest.json missing — run the base-rate runner first")
     m = json.load(open(manifest_path))
 
-    required = list(required_universe or m.get("requested_pairs", []))
-    valid_pairs = [p for p, n in m["unique_sessions"].items() if n > 0]
-    missing = [p for p in required if p not in valid_pairs]
+    # 1. Universe: for promotion, the frozen registry universe is REQUIRED.
+    promotable = required_universe is None
+    required = [p.upper() for p in (required_universe if required_universe is not None
+                                    else FRZ.primary_universe)]
+    missing = [p for p in required if m["unique_sessions"].get(p, 0) <= 0]
     if missing:
         raise RuntimeError(f"precondition: universe incomplete — no valid data for {missing}; "
-                           f"refusing inference (subset runs must be explicitly declared)")
+                           f"refusing inference (subset runs must be explicitly declared and are non-promotable)")
     if not m.get("universe_complete", False):
         raise RuntimeError("precondition: manifest universe_complete=False — inference blocked")
-    if m.get("total_unique_valid", 0) <= 0:
-        raise RuntimeError("precondition: zero valid sessions")
 
-    # DATA gates must PASS for every required pair
+    # 2. Table↔manifest reconciliation (audit #1: trust the ACTUAL table)
+    sess = pd.read_parquet(base / "FX-LDN-001-v2" / "sessions.parquet")
+    if sess.duplicated(["pair", "london_date"]).any():
+        raise RuntimeError("precondition: duplicate (pair, london_date) rows — session accounting invalid")
+    actual_pairs = [p for p, n in sess[sess["valid"] == True]["pair"].value_counts().items() if n > 0]
+    absent = [p for p in required if p not in actual_pairs]
+    if absent:
+        raise RuntimeError(f"precondition: session table missing required pairs {absent} "
+                           f"(manifest/table disagreement)")
+    for p in required:
+        table_n = int(((sess["pair"] == p) & (sess["valid"] == True)).sum())
+        manifest_n = int(m["unique_sessions"].get(p, 0))
+        if table_n != manifest_n:
+            raise RuntimeError(f"precondition: {p} count mismatch — table {table_n} vs manifest {manifest_n}")
+
+    # 3. DATA gates PASS with positive coverage for every required pair
     gates_path = base / "DATA_GATES" / "data_gates.json"
     if not gates_path.exists():
         raise RuntimeError("precondition: DATA_GATES/data_gates.json missing — DATA gates not run")
     g = json.load(open(gates_path))
     for p in required:
-        if p not in g["pairs"] or not g["pairs"][p]["DATA_pass"]:
+        pg = g["pairs"].get(p)
+        if not pg or not pg.get("DATA_pass"):
             raise RuntimeError(f"precondition: DATA gate FAIL or missing for {p} — inference blocked")
 
-    # uniqueness of (pair, london_date) in the session table
-    sess = pd.read_parquet(base / "FX-LDN-001-v2" / "sessions.parquet")
-    if sess.duplicated(["pair", "london_date"]).any():
-        raise RuntimeError("precondition: duplicate (pair, london_date) rows — session accounting invalid")
+    # 4. Store snapshot agreement (audit #4: one data identity across artifacts)
+    import fxedge.snapshot as snap
+    store_manifest_path = Path("data/shards") / snap.STORE_MANIFEST
+    if store_manifest_path.exists():
+        store_manifest = json.load(open(store_manifest_path))
+        run_snap = m.get("store_fingerprint", {})
+        if run_snap:
+            snap.reject_mismatch(run_snap, store_manifest, "manifest-vs-store")
 
     return {"manifest": m, "required_universe": required, "gates": g,
+            "promotable": bool(promotable and set(required) == set(FRZ.primary_universe)),
             "n_valid": int(sess["valid"].sum())}
 
 

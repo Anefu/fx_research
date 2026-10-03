@@ -22,6 +22,7 @@ from fxedge.registry import FRZ, REGISTRY_VERSION
 from fxedge.sessions import SessionEngine
 from fxedge.shard_reader import read_pair, shard_root_default
 from fxedge.sessions_cov import compute_sessions_coverage
+from fxedge.snapshot import fingerprint_store as snapshot_fingerprint_store
 
 UTC = "UTC"
 
@@ -56,7 +57,7 @@ def sha256_file(p: Path, n_bytes: Optional[int] = None) -> str:
 
 
 def fingerprint_store(root: Path) -> Dict:
-    """Per-pair: shard count, span, byte sizes, sampled hashes."""
+    """DEPRECATED alias — prefer fxedge.snapshot.fingerprint_store (audit #4)."""
     inv = {}
     for pdir in sorted(root.glob("*")):
         if not pdir.is_dir():
@@ -94,7 +95,7 @@ def run_ldn_001_v2(out_dir=None, root=None, pairs=None, strict=True) -> pd.DataF
         "requested_pairs": list(pairs or FRZ.primary_universe),
         "frozen": {"asia": f"{FRZ.asia_start}-{FRZ.asia_end}",
                    "london": f"{FRZ.london_window_start}-{FRZ.london_window_end}"},
-        "store_fingerprint": fingerprint_store(root),
+        "store_fingerprint": snapshot_fingerprint_store(root),
         "exclusions": {},
         "expected_sessions": {},
         "unique_sessions": {},

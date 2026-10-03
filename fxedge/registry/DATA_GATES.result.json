@@ -1,78 +1,85 @@
 {
-  "registry_version": "1.0",
-  "pairs": {
-    "EURUSD": {
-      "negative_spread": 0,
-      "jump_gt_2pct": 0,
-      "bars_checked": 765988,
-      "high_mismatch": 0,
-      "flat_mismatch": 0,
-      "total_ticks": 266033399,
-      "longest_gap_min": 4680.0,
-      "DATA_pass": true
-    },
-    "GBPUSD": {
-      "negative_spread": 0,
-      "jump_gt_2pct": 0,
-      "bars_checked": 765981,
-      "high_mismatch": 0,
-      "flat_mismatch": 0,
-      "total_ticks": 327061559,
-      "longest_gap_min": 4681.0,
-      "DATA_pass": true
-    },
-    "USDJPY": {
-      "negative_spread": 0,
-      "jump_gt_2pct": 0,
-      "bars_checked": 766082,
-      "high_mismatch": 0,
-      "flat_mismatch": 0,
-      "total_ticks": 316789981,
-      "longest_gap_min": 4680.0,
-      "DATA_pass": true
-    },
-    "AUDUSD": {
-      "negative_spread": 0,
-      "jump_gt_2pct": 0,
-      "bars_checked": 766041,
-      "high_mismatch": 0,
-      "flat_mismatch": 0,
-      "total_ticks": 225244521,
-      "longest_gap_min": 4681.0,
-      "DATA_pass": true
-    },
-    "USDCAD": {
-      "negative_spread": 0,
-      "jump_gt_2pct": 0,
-      "bars_checked": 766035,
-      "high_mismatch": 0,
-      "flat_mismatch": 0,
-      "total_ticks": 239492992,
-      "longest_gap_min": 4680.0,
-      "DATA_pass": true
-    },
-    "USDCHF": {
-      "negative_spread": 0,
-      "jump_gt_2pct": 0,
-      "bars_checked": 766068,
-      "high_mismatch": 0,
-      "flat_mismatch": 0,
-      "total_ticks": 202805539,
-      "longest_gap_min": 4680.0,
-      "DATA_pass": true
-    }
+ "registry_version": "1.0",
+ "pairs": {
+  "EURUSD": {
+   "negative_spread": 0,
+   "jump_gt_2pct": 0,
+   "bars_checked": 739373,
+   "high_mismatch": 0,
+   "flat_mismatch": 0,
+   "total_ticks": 254793245,
+   "longest_gap_min": 4680.0,
+   "months_missing": [],
+   "DATA_pass": true
   },
-  "git_revision": "30e4363614c807e3c30ca5322fec55e0318e4d3d",
-  "module_sha256": {
-    "fxedge/tick_schema.py": "4803affbd841b0273a6359be1ca2192d2f3506e1af40de8bdf2038a8564feb91",
-    "fxedge/bars.py": "37a2cabd402694c891d71466e1bee684e352c81c5b263c76d3f299b9ffe187df",
-    "fxedge/sessions.py": "ef5fcded69106dd00327f8972fdea1f2749c11b719fac09dac93f9ea0efd1375",
-    "fxedge/sessions_cov.py": "470e4b0f6566d3c012c9bcadf987985db697a645dfd77424f3a06027400bf898",
-    "fxedge/shard_reader.py": "6041df528d9bc7a1f6076ed4d177c2e6c5393f68e5e67f15087e9ec452e0afb4",
-    "fxedge/stream_ingest.py": "d98a71eeb7605f10a12ba32f4f68d032006a628a07eb4d828d7d4b52666876ef",
-    "fxedge/registry.py": "c1c7cfe6f6ad53f4fd0aea045012b2ad8294c244d8d9cb446a55c4b525835206",
-    "fxedge/ldn_002_004_v2.py": "0f94224126403f1e9788eda3cb5c667c412d9ef1d8da1f3f8173a92de23054a7",
-    "fxedge/real_run_v2.py": "050cea3099bf58c1816b236ea719609174955b1953ee2a8b087554298d0124c8",
-    "fxedge/data_quality.py": "a88875942a6f3c027cfaf1176cf0ae05a6be00ce26f35ae228a44d8a76102c2b"
+  "GBPUSD": {
+   "negative_spread": 0,
+   "jump_gt_2pct": 0,
+   "bars_checked": 739389,
+   "high_mismatch": 0,
+   "flat_mismatch": 0,
+   "total_ticks": 313779745,
+   "longest_gap_min": 4681.0,
+   "months_missing": [],
+   "DATA_pass": true
+  },
+  "USDJPY": {
+   "negative_spread": 0,
+   "jump_gt_2pct": 0,
+   "bars_checked": 739471,
+   "high_mismatch": 0,
+   "flat_mismatch": 0,
+   "total_ticks": 304008258,
+   "longest_gap_min": 4680.0,
+   "months_missing": [],
+   "DATA_pass": true
+  },
+  "AUDUSD": {
+   "negative_spread": 0,
+   "jump_gt_2pct": 0,
+   "bars_checked": 739427,
+   "high_mismatch": 0,
+   "flat_mismatch": 0,
+   "total_ticks": 213593657,
+   "longest_gap_min": 4681.0,
+   "months_missing": [],
+   "DATA_pass": true
+  },
+  "USDCAD": {
+   "negative_spread": 0,
+   "jump_gt_2pct": 0,
+   "bars_checked": 739424,
+   "high_mismatch": 0,
+   "flat_mismatch": 0,
+   "total_ticks": 228624428,
+   "longest_gap_min": 4680.0,
+   "months_missing": [],
+   "DATA_pass": true
+  },
+  "USDCHF": {
+   "negative_spread": 0,
+   "jump_gt_2pct": 0,
+   "bars_checked": 739459,
+   "high_mismatch": 0,
+   "flat_mismatch": 0,
+   "total_ticks": 195258865,
+   "longest_gap_min": 4680.0,
+   "months_missing": [],
+   "DATA_pass": true
   }
+ },
+ "git_revision": "4abafeb43bf3b8532cf0f112ac20d6997897adfa",
+ "module_sha256": {
+  "fxedge/tick_schema.py": "0d528227fa55e2dc090d33804a7bd6d0973283436f46780534d2549d76d8c4da",
+  "fxedge/bars.py": "37a2cabd402694c891d71466e1bee684e352c81c5b263c76d3f299b9ffe187df",
+  "fxedge/sessions.py": "ef5fcded69106dd00327f8972fdea1f2749c11b719fac09dac93f9ea0efd1375",
+  "fxedge/sessions_cov.py": "470e4b0f6566d3c012c9bcadf987985db697a645dfd77424f3a06027400bf898",
+  "fxedge/shard_reader.py": "6041df528d9bc7a1f6076ed4d177c2e6c5393f68e5e67f15087e9ec452e0afb4",
+  "fxedge/stream_ingest.py": "ddf223869334eb532ffda65e20b54477a2d5a856f8b95123d6966a29308f6832",
+  "fxedge/registry.py": "c1c7cfe6f6ad53f4fd0aea045012b2ad8294c244d8d9cb446a55c4b525835206",
+  "fxedge/ldn_002_004_v2.py": "c659eaa8b669e85342201c0f580301e30b9f402da3bac594734f4fd9f628e5e1",
+  "fxedge/real_run_v2.py": "3b355a323b574b7b4e48ef3d38424f0d5b60ce73bfb985bf5fcf72caae806e47",
+  "fxedge/data_quality.py": "a88875942a6f3c027cfaf1176cf0ae05a6be00ce26f35ae228a44d8a76102c2b"
+ },
+ "store_snapshot_id": "fa7a93acb7f73558f0726ad3fe97f74311610a464f83d66d418c0353f0a7e4aa"
 }
