@@ -149,7 +149,7 @@ def mw_u_p(a, b):
     return {"z": float(z), "p": float(erfc(abs(z) / sqrt(2)))}
 
 
-def preconditions(out_root="runs", required_universe=None) -> dict:
+def preconditions(out_root="runs", required_universe=None, root=None) -> dict:
     """Precondition gate (audit rounds 3+4).
 
     Hard requirements before ANY inference:
@@ -170,7 +170,7 @@ def preconditions(out_root="runs", required_universe=None) -> dict:
     manifest_path = base / "FX-LDN-001-v2" / "manifest.json"
     if not manifest_path.exists():
         raise RuntimeError("precondition: FX-LDN-001-v2 manifest.json missing — run the base-rate runner first")
-    m = json.load(open(manifest_path))
+    m = json.loads(manifest_path.read_text())
 
     # 1. Universe: for promotion, the frozen registry universe is REQUIRED.
     promotable = required_universe is None
@@ -188,6 +188,8 @@ def preconditions(out_root="runs", required_universe=None) -> dict:
     if sess.duplicated(["pair", "london_date"]).any():
         raise RuntimeError("precondition: duplicate (pair, london_date) rows — session accounting invalid")
     actual_pairs = [p for p, n in sess[sess["valid"] == True]["pair"].value_counts().items() if n > 0]
+    if required_universe is None and set(actual_pairs) != set(required):
+        raise RuntimeError("precondition: session table universe differs from frozen universe")
     absent = [p for p in required if p not in actual_pairs]
     if absent:
         raise RuntimeError(f"precondition: session table missing required pairs {absent} "
@@ -202,20 +204,37 @@ def preconditions(out_root="runs", required_universe=None) -> dict:
     gates_path = base / "DATA_GATES" / "data_gates.json"
     if not gates_path.exists():
         raise RuntimeError("precondition: DATA_GATES/data_gates.json missing — DATA gates not run")
-    g = json.load(open(gates_path))
+    g = json.loads(gates_path.read_text())
     for p in required:
         pg = g["pairs"].get(p)
-        if not pg or not pg.get("DATA_pass"):
+        if (not pg or not pg.get("DATA_pass") or pg.get("total_ticks", 0) <= 0
+                or pg.get("bars_checked", 0) <= 0 or pg.get("months_missing")):
             raise RuntimeError(f"precondition: DATA gate FAIL or missing for {p} — inference blocked")
 
     # 4. Store snapshot agreement (audit #4: one data identity across artifacts)
     import fxedge.snapshot as snap
-    store_manifest_path = Path("data/shards") / snap.STORE_MANIFEST
-    if store_manifest_path.exists():
-        store_manifest = json.load(open(store_manifest_path))
-        run_snap = m.get("store_fingerprint", {})
-        if run_snap:
-            snap.reject_mismatch(run_snap, store_manifest, "manifest-vs-store")
+    if not m.get("store_root") or not g.get("store_root"):
+        raise RuntimeError("precondition: store_root binding missing; rerun sessions and DATA gates")
+    store_root = Path(root or m["store_root"]).resolve()
+    if store_root != Path(m["store_root"]).resolve() or store_root != Path(g["store_root"]).resolve():
+        raise RuntimeError("precondition: artifacts reference different stores")
+    live = snap.snapshot_id(store_root)
+    snap.reject_mismatch(m.get("store_fingerprint", {}), live, "sessions-vs-live-store")
+    snap.reject_mismatch(g.get("store_fingerprint", {}), live, "DATA-vs-live-store")
+    if not m.get("expected_months") or m["expected_months"] != g.get("expected_months"):
+        raise RuntimeError("precondition: expected month coverage missing or differs")
+    if any(m.get("months_missing", {}).values()):
+        raise RuntimeError("precondition: session months missing")
+    session_path = base / "FX-LDN-001-v2" / "sessions.parquet"
+    if m.get("sessions_sha256") != snap._sha256_file(session_path):
+        raise RuntimeError("precondition: session table binding missing or changed")
+    mp = store_root / snap.STORE_MANIFEST
+    if mp.exists():
+        metadata = json.loads(mp.read_text())
+        if any(v.get("chronology") == "recovered-unordered" for v in metadata.get("shards", {}).values()):
+            raise RuntimeError("precondition: unresolved source chronology; recover from exports")
+        if metadata.get("snapshot_id"):
+            snap.reject_mismatch(metadata, live, "saved-store-vs-live-store")
 
     return {"manifest": m, "required_universe": required, "gates": g,
             "promotable": bool(promotable and set(required) == set(FRZ.primary_universe)),
@@ -258,6 +277,8 @@ def main(out_root="runs"):
     }
     report = {
         "registry_version": "1.0",
+        "store_fingerprint": pre["manifest"]["store_fingerprint"],
+        "promotable": pre["promotable"],
         "version_note": "v2: joint date-block panel bootstrap; median-keyed decision",
         "decision_rule_stated_before_results":
             "L1 = median-ER CI excludes 0 positively AND |R_60| and |R_180| CIs exclude 0 "

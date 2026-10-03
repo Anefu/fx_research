@@ -14,6 +14,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+from fxedge.snapshot import snapshot_id, reject_mismatch, expected_months
 from fxedge.bars import build_bars
 from fxedge.data_quality import _gap_summary, bid_ask_integrity
 from fxedge.ldn_001 import compute_sessions
@@ -76,22 +77,26 @@ def gates_for_pair(pair: str, root: Path, months: list) -> dict:
     return res
 
 
-def run(pair_list=None, root=None, out_dir=None):
-    root = root or shard_root_default()
+def run(pair_list=None, root=None, out_dir=None, start_month=None, end_month=None):
+    root = Path(root or shard_root_default()).resolve()
     out_dir = Path(out_dir or "runs/DATA_GATES")
     out_dir.mkdir(parents=True, exist_ok=True)
-    report = {"registry_version": REGISTRY_VERSION, "pairs": {}}
+    before = snapshot_id(root)
+    months = expected_months(root, start_month, end_month)
+    report = {"registry_version": REGISTRY_VERSION, "pairs": {},
+              "store_root": str(root), "store_fingerprint": before, "expected_months": months}
     for pair in (pair_list or FRZ.primary_universe):
         pdir = root / pair
-        months = sorted(int(m) for m in [p.stem for p in pdir.glob("*.parquet")])
         r = gates_for_pair(pair, root, months)
         r["DATA_pass"] = (r["negative_spread"] == 0 and r["jump_gt_2pct"] == 0 and
                           r["high_mismatch"] == 0 and r["flat_mismatch"] == 0 and
-                          r["bars_checked"] > 0 and len(r["months_missing"]) == 0)
+                          r["bars_checked"] > 0 and r["total_ticks"] > 0 and len(r["months_missing"]) == 0)
         report["pairs"][pair] = r
         print(f"{pair}: ticks={r['total_ticks']:,} neg-spread={r['negative_spread']} "
               f"jump2%={r['jump_gt_2pct']} bar-mismatch(h/l)={r['high_mismatch']}/{r['flat_mismatch']} "
               f"longest-gap={r['longest_gap_min']:.0f}min -> PASS={r['DATA_pass']}", flush=True)
+    if before["pairs"]:
+        reject_mismatch(before, snapshot_id(root), "DATA store changed during run")
     (out_dir / "data_gates.json").write_text(json.dumps(report, indent=2))
     print("saved:", out_dir / "data_gates.json")
     return report

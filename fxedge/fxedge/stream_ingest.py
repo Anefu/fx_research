@@ -27,8 +27,8 @@ def convert_one(csv: Path, shard_root: Path) -> tuple:
     """Month-CSV -> canonical shard.
 
     Refresh semantics (audit round-4): existing shard rows keep their seq
-    identity; re-transmitted (overlapping) records are dropped from the
-    incoming frame; new source rows get fresh disjoint seq numbers.
+    identity. Matching overlap is removed in source order. Conflicting
+    overlap raises an error and leaves the CSV in place for recovery.
     """
     import fxedge.tick_schema as ts_
     m = FNAME_RE.match(csv.name)
@@ -40,9 +40,9 @@ def convert_one(csv: Path, shard_root: Path) -> tuple:
     n_overlap = 0
     if shard.exists():
         old = ts.read_shard(shard)
+        incoming_count = len(df)
         df, _wm = ts_.merge_refresh(old, df)
-        n_overlap = len(old) + len(df) - len(old) - _count_new(old, df)
-        df = df
+        n_overlap = incoming_count - (len(df) - len(old))
     ts.write_shard(df, shard)
     csv.unlink()
     return pair, yyyymm, len(df), n_overlap

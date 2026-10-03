@@ -13,7 +13,7 @@ import re
 import sys
 from datetime import date, timedelta
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -22,7 +22,7 @@ from fxedge.registry import FRZ, REGISTRY_VERSION
 from fxedge.sessions import SessionEngine
 from fxedge.shard_reader import read_pair, shard_root_default
 from fxedge.sessions_cov import compute_sessions_coverage
-from fxedge.snapshot import fingerprint_store as snapshot_fingerprint_store
+from fxedge.snapshot import fingerprint_store as snapshot_fingerprint_store, expected_months, reject_mismatch, _sha256_file
 
 UTC = "UTC"
 
@@ -77,14 +77,15 @@ def fingerprint_store(root: Path) -> Dict:
     return inv
 
 
-def run_ldn_001_v2(out_dir=None, root=None, pairs=None, strict=True) -> pd.DataFrame:
+def run_ldn_001_v2(out_dir=None, root=None, pairs=None, strict=True, start_month=None, end_month=None) -> pd.DataFrame:
     """Corrected FX-LDN-001 runner (audit B3/B5 semantics).
 
     strict=True: a requested pair with no usable data marks universe_complete=False
     and the manifest says so; callers must not present partial-universe results
     as full-universe results.
     """
-    root = root or shard_root_default()
+    root = Path(root or shard_root_default()).resolve()
+    months = expected_months(root, start_month, end_month)
     out_dir = Path(out_dir or "runs/FX-LDN-001-v2")
     out_dir.mkdir(parents=True, exist_ok=True)
     engine = SessionEngine(FRZ)
@@ -96,6 +97,9 @@ def run_ldn_001_v2(out_dir=None, root=None, pairs=None, strict=True) -> pd.DataF
         "frozen": {"asia": f"{FRZ.asia_start}-{FRZ.asia_end}",
                    "london": f"{FRZ.london_window_start}-{FRZ.london_window_end}"},
         "store_fingerprint": snapshot_fingerprint_store(root),
+        "store_root": str(root),
+        "expected_months": months,
+        "months_missing": {},
         "exclusions": {},
         "expected_sessions": {},
         "unique_sessions": {},
@@ -105,8 +109,10 @@ def run_ldn_001_v2(out_dir=None, root=None, pairs=None, strict=True) -> pd.DataF
     failed_pairs = []
     for pair in (pairs or FRZ.primary_universe):
         print(f"{pair}: ...", flush=True)
-        months = sorted(int(re.match(r"^(\d{6})", p.stem).group(1))
-                        for p in (root / pair).glob("*.parquet"))
+        missing = [ym for ym in months if not (root / pair / f"{ym}.parquet").exists()]
+        manifest["months_missing"][pair] = missing
+        if missing:
+            failed_pairs.append(pair)
         if not months:
             failed_pairs.append(pair)
             manifest["unique_sessions"][pair] = 0
@@ -178,6 +184,9 @@ def run_ldn_001_v2(out_dir=None, root=None, pairs=None, strict=True) -> pd.DataF
     manifest["failed_pairs"] = failed_pairs
     manifest["universe_complete"] = len(failed_pairs) == 0
     sessions.to_parquet(out_dir / "sessions.parquet")
+    manifest["sessions_sha256"] = _sha256_file(out_dir / "sessions.parquet")
+    if manifest["store_fingerprint"]["pairs"]:
+        reject_mismatch(manifest["store_fingerprint"], snapshot_fingerprint_store(root), "session store changed during run")
     (out_dir / "manifest.json").write_text(json.dumps(manifest, indent=2, default=str))
     print("wrote", out_dir)
     return sessions

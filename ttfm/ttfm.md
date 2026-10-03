@@ -147,10 +147,10 @@ This is the starting contract. The parameter choices are research defaults, not 
 
 ### Primary state hypotheses
 
-Define prior trend as the close-to-close change over 20 completed exchange sessions, divided by daily ATR over those sessions. Use same-contract history. Orient trend to the encounter direction.
+Define prior trend as the close-to-close change over 20 completed exchange sessions, divided by daily ATR over those sessions. Use same-contract history. Orient trend to the encounter direction. The resulting score has no units.
 
-- **Aligned:** oriented trend is greater than +0.5 daily ATR.
-- **Opposed:** oriented trend is less than −0.5 daily ATR.
+- **Aligned:** oriented trend is greater than +0.5.
+- **Opposed:** oriented trend is less than −0.5.
 - **Neutral:** between those thresholds, including the boundaries.
 
 GEN1-01 has three primary comparisons: salient encounters versus matched control crossings within each state. The directional hypothesis is greater continuation at salient levels. Also report reversals and neither outcomes. A pooled comparison is descriptive and cannot replace a failed primary comparison.
