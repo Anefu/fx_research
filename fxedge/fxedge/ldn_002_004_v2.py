@@ -96,8 +96,14 @@ def joint_block_stats(panel: pd.DataFrame, B=B_BOOT, L=BLOCK_DAYS, seed=SEED) ->
     nan_ct = {k: 0 for k in point}
     for b in range(B):
         picks = rng.integers(0, n_blocks, size=n_blocks)     # independent block resample
-        dd = np.concatenate([np.arange(*blocks[p]) for p in picks])[:n_dates]
-        st = stat(dates[dd])                                 # positions -> date labels
+        dd = np.concatenate([np.arange(*blocks[p]) for p in picks])
+        # audit #3: guarantee replicate length — keep drawing until n_dates
+        while len(dd) < n_dates:
+            p2 = rng.integers(0, n_blocks)
+            dd = np.concatenate([dd, np.arange(*blocks[p2])])
+        dd = dd[:n_dates]
+        assert len(dd) == n_dates, "replicate length mismatch"
+        st = stat(dates[np.sort(dd)])                        # positions -> labels (sorted ⇒ deterministic)
         for k in point:
             v = st[k]
             if np.isfinite(v):
@@ -143,7 +149,48 @@ def mw_u_p(a, b):
     return {"z": float(z), "p": float(erfc(abs(z) / sqrt(2)))}
 
 
+def preconditions(out_root="runs", required_universe=None) -> dict:
+    """Audit #2: validate manifest/universe/DATA gates/uniqueness BEFORE inference.
+
+    Returns a dict of checks; raises on failure unless explicitly overridden.
+    """
+    base = Path(out_root)
+    manifest_path = base / "FX-LDN-001-v2" / "manifest.json"
+    if not manifest_path.exists():
+        raise RuntimeError("precondition: FX-LDN-001-v2 manifest.json missing — run the base-rate runner first")
+    m = json.load(open(manifest_path))
+
+    required = list(required_universe or m.get("requested_pairs", []))
+    valid_pairs = [p for p, n in m["unique_sessions"].items() if n > 0]
+    missing = [p for p in required if p not in valid_pairs]
+    if missing:
+        raise RuntimeError(f"precondition: universe incomplete — no valid data for {missing}; "
+                           f"refusing inference (subset runs must be explicitly declared)")
+    if not m.get("universe_complete", False):
+        raise RuntimeError("precondition: manifest universe_complete=False — inference blocked")
+    if m.get("total_unique_valid", 0) <= 0:
+        raise RuntimeError("precondition: zero valid sessions")
+
+    # DATA gates must PASS for every required pair
+    gates_path = base / "DATA_GATES" / "data_gates.json"
+    if not gates_path.exists():
+        raise RuntimeError("precondition: DATA_GATES/data_gates.json missing — DATA gates not run")
+    g = json.load(open(gates_path))
+    for p in required:
+        if p not in g["pairs"] or not g["pairs"][p]["DATA_pass"]:
+            raise RuntimeError(f"precondition: DATA gate FAIL or missing for {p} — inference blocked")
+
+    # uniqueness of (pair, london_date) in the session table
+    sess = pd.read_parquet(base / "FX-LDN-001-v2" / "sessions.parquet")
+    if sess.duplicated(["pair", "london_date"]).any():
+        raise RuntimeError("precondition: duplicate (pair, london_date) rows — session accounting invalid")
+
+    return {"manifest": m, "required_universe": required, "gates": g,
+            "n_valid": int(sess["valid"].sum())}
+
+
 def main(out_root="runs"):
+    pre = preconditions(out_root)          # audit #2: hard gate before any inference
     sess = pd.read_parquet(Path(out_root) / "FX-LDN-001-v2" / "sessions.parquet")
     v = sess[sess["valid"] == True].copy()
     v = add_flags(v)

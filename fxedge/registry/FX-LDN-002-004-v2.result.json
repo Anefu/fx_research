@@ -1,6 +1,18 @@
 {
   "experiment": "FX-LDN-002-004-v2",
-  "git_revision": "0db8c32a47194884d764333839f54d3508500f72",
+  "git_revision": "30e4363614c807e3c30ca5322fec55e0318e4d3d",
+  "module_sha256": {
+    "fxedge/tick_schema.py": "4803affbd841b0273a6359be1ca2192d2f3506e1af40de8bdf2038a8564feb91",
+    "fxedge/bars.py": "37a2cabd402694c891d71466e1bee684e352c81c5b263c76d3f299b9ffe187df",
+    "fxedge/sessions.py": "ef5fcded69106dd00327f8972fdea1f2749c11b719fac09dac93f9ea0efd1375",
+    "fxedge/sessions_cov.py": "470e4b0f6566d3c012c9bcadf987985db697a645dfd77424f3a06027400bf898",
+    "fxedge/shard_reader.py": "6041df528d9bc7a1f6076ed4d177c2e6c5393f68e5e67f15087e9ec452e0afb4",
+    "fxedge/stream_ingest.py": "d98a71eeb7605f10a12ba32f4f68d032006a628a07eb4d828d7d4b52666876ef",
+    "fxedge/registry.py": "c1c7cfe6f6ad53f4fd0aea045012b2ad8294c244d8d9cb446a55c4b525835206",
+    "fxedge/ldn_002_004_v2.py": "0f94224126403f1e9788eda3cb5c667c412d9ef1d8da1f3f8173a92de23054a7",
+    "fxedge/real_run_v2.py": "050cea3099bf58c1816b236ea719609174955b1953ee2a8b087554298d0124c8",
+    "fxedge/data_quality.py": "a88875942a6f3c027cfaf1176cf0ae05a6be00ce26f35ae228a44d8a76102c2b"
+  },
   "decision_rule": "L1 = median-ER CI excludes 0 positively AND |R_60| and |R_180| CIs exclude 0 positively AND >=5/6 pair sign agreement on |R_60|; else branch fails/mechanical.",
   "bootstrap": {
     "B": 2000,
@@ -22,39 +34,58 @@
     "ldn_rel_range_bp_comp": 15.92676815261843,
     "ldn_rel_range_bp_non": 20.301221281095028
   },
-  "point": {
-    "med_er_diff": 0.2657919195659748,
-    "mean_er_diff": 0.3039452221438801,
-    "p1_diff": 0.21158710808938344,
-    "p15_diff": 0.07591544114237574,
-    "r60_diff": -0.00011140707024781706,
-    "r180_diff": -0.0001835944623445275
-  },
-  "ci95": {
-    "med_er_diff": [
-      0.24082808748718873,
-      0.29176513176023156
-    ],
-    "mean_er_diff": [
-      0.2789110325347812,
-      0.330192895501299
-    ],
-    "p1_diff": [
-      0.18656535681133804,
-      0.23595011989287695
-    ],
-    "p15_diff": [
-      0.06268775606966678,
-      0.09021582249915251
-    ],
-    "r60_diff": [
-      -0.000141339465624032,
-      -8.300492155464753e-05
-    ],
-    "r180_diff": [
-      -0.00025478588426251265,
-      -0.00012704864334723087
-    ]
+  "joint_block_bootstrap": {
+    "point": {
+      "med_er_diff": 0.2657919195659748,
+      "mean_er_diff": 0.3039452221438801,
+      "p1_diff": 0.21158710808938344,
+      "p15_diff": 0.07591544114237574,
+      "r60_diff": -0.00011140707024781706,
+      "r180_diff": -0.0001835944623445275
+    },
+    "ci95": {
+      "med_er_diff": [
+        0.24104827281145355,
+        0.2908953576947671
+      ],
+      "mean_er_diff": [
+        0.27862136133597254,
+        0.3298411748099663
+      ],
+      "p1_diff": [
+        0.1877222110829138,
+        0.23632144911833908
+      ],
+      "p15_diff": [
+        0.06335112432902207,
+        0.08977556532326554
+      ],
+      "r60_diff": [
+        -0.00014224128060781453,
+        -8.316217323187645e-05
+      ],
+      "r180_diff": [
+        -0.00025402963658431783,
+        -0.00012721090695807046
+      ]
+    },
+    "excludes_zero": {
+      "med_er_diff": true,
+      "mean_er_diff": true,
+      "p1_diff": true,
+      "p15_diff": true,
+      "r60_diff": true,
+      "r180_diff": true
+    },
+    "n_valid_draws": {
+      "med_er_diff": 2000,
+      "mean_er_diff": 2000,
+      "p1_diff": 2000,
+      "p15_diff": 2000,
+      "r60_diff": 2000,
+      "r180_diff": 2000
+    },
+    "blocks_per_replicate": 123
   },
   "sign_tables": {
     "ABS_signs_60": {

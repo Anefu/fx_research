@@ -10,6 +10,8 @@ from typing import Optional
 import numpy as np
 import pandas as pd
 
+from fxedge.tick_schema import SEQ_COL
+
 
 def to_freq(rule: str) -> str:
     """Registry bar labels use minutes ("5m"); pandas requires "5min"."""
@@ -41,8 +43,17 @@ def build_bars(ticks: pd.DataFrame, rule: str = "5m", spread_cap_frac: float = 0
         return pd.DataFrame()
 
     freq = to_freq(rule)
-    df = ticks.sort_index()
-    df = df[~df.index.duplicated(keep="last")]  # duplicate timestamps: keep last
+    df = ticks.sort_index(kind="mergesort")
+    # audit #1 fix: NO timestamp-only dedup in bar construction. Distinct
+    # same-ms quotes all contribute to the bar (their true range/count).
+    # Causal ordering within a timestamp uses arrival _seq (never price);
+    # if absent, source row order is the (stable) tiebreak.
+    if SEQ_COL not in df.columns and df.index.nlevels == 1:
+        df = df.copy()
+        df[SEQ_COL] = np.arange(len(df), dtype="int64")
+    df = df.reset_index()
+    ts_col = df.columns[0]
+    df = df.sort_values([ts_col, SEQ_COL], kind="mergesort").set_index(ts_col)
     spread = df["ask"] - df["bid"]
     if (spread < 0).any():
         bad = spread[spread < 0]

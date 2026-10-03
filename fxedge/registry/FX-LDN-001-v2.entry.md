@@ -1,10 +1,9 @@
-# FX-LDN-001 v2 — Registry Entry (corrected rerun, filled)
+# FX-LDN-001 v3 — Registry Entry (generated from manifest.json + FX-LDN-001-v2.result.json)
 
-| Field | Value |
-|---|---|
-| Hypothesis | none — baseline measurement only (exclusions held: no entries/stops/targets/ICT/optimization) |
-| Universe | 6 registry majors; MT5 real ticks 2016-11-01 → 2026-10-02 |
-| Result | **14,935 unique (pair,date) sessions** (2,479–2,495/pair; ≤2,589 weekday bound ✓); 66 coverage exclusions (83%-floor windows, 5-min quote-age bound; enumerated in manifest); ER median 0.60–0.74 |
-| Interpretation | √-time null ≈ 0.65 ⇒ ER median is **consistent with the diffusion null**; the v1 "London concentrates range" claim is retracted |
-| Decision | **Recorded — base rates only.** Full-period results are exploratory; final 20% viewed |
-| Manifest | fxedge/runs/FX-LDN-001-v2/manifest.json (store fingerprint, exclusions, uniqueness) |
+- **Git revision:** `30e4363614c8`
+- **Universe complete:** True (requested: ['EURUSD', 'GBPUSD', 'USDJPY', 'AUDUSD', 'USDCAD', 'USDCHF'])
+- **Sessions per pair:** expected {'EURUSD': 2609, 'GBPUSD': 2609, 'USDJPY': 2609, 'AUDUSD': 2609, 'USDCAD': 2609, 'USDCHF': 2609} | valid {'EURUSD': 2494, 'GBPUSD': 2493, 'USDJPY': 2495, 'AUDUSD': 2491, 'USDCAD': 2483, 'USDCHF': 2479} | horizon-eligible(60m) {'EURUSD': {'15': 2494, '30': 2494, '60': 2493, '180': 2494}, 'GBPUSD': {'15': 2493, '30': 2493, '60': 2492, '180': 2493}, 'USDJPY': {'15': 2494, '30': 2494, '60': 2493, '180': 2494}, 'AUDUSD': {'15': 2491, '30': 2491, '60': 2490, '180': 2491}, 'USDCAD': {'15': 2483, '30': 2483, '60': 2482, '180': 2483}, 'USDCHF': {'15': 2478, '30': 2478, '60': 2477, '180': 2478}}
+- **Exclusions (total 719):** {'out-of-slice': 474, 'window-coverage': 245}
+- **Reconciliation:** valid + excluded == expected for every pair
+- **Store fingerprint:** SHA-256 sample hashes in `(run_dir)/provenance.json`; shards {'AUDUSD': {'n_shards': 120, 'first_month': 201611, 'last_month': 202610, 'bytes_total': 2498299672, 'hash_first_shard_head': '33a8150da0b8c1c9f9702bf97bb94bcd12087ca849f31fae1dde0bfe21733cd2', 'hash_last_shard_head': '4b41ee5ce945a0c79d3dca41a023731e111fa4d69db7358463afd7eb849b47d4'}, 'EURUSD': {'n_shards': 120, 'first_month': 201611, 'last_month': 202610, 'bytes_total': 2978292134, 'hash_first_shard_head': '32152ad018ce7e3fb6ad4d5ca3deac7eb114aed5768192ebdc5606fa3ad14d1f', 'hash_last_shard_head': '0f5c4395c015799da3ae7b0afbcff82aeb12158c10eeb177279599affc74a346'}, 'GBPUSD': {'n_shards': 120, 'first_month': 201611, 'last_month': 202610, 'bytes_total': 3666437912, 'hash_first_shard_head': '27cf1aa9f9e33b7b2b338654437aab57ab56c0a8e109e9bcebe84357065896aa', 'hash_last_shard_head': '75f5ffd9a51ce8fceaeb037d5acdde80e042ce22b84c87a9c154b9ba40b3779b'}, 'USDCAD': {'n_shards': 120, 'first_month': 201611, 'last_month': 202610, 'bytes_total': 2682867717, 'hash_first_shard_head': '0ef6f798dd9a8a5698e20ed43d1987e00368beca6c1bd97be8a36374c262bcd6', 'hash_last_shard_head': 'ffe084fc8bc7274d892fae6d4a46fec1763bb2da1a76e0fa07fb7474e629a1b6'}, 'USDCHF': {'n_shards': 120, 'first_month': 201611, 'last_month': 202610, 'bytes_total': 2294554698, 'hash_first_shard_head': 'be45617f857d230b58b14ba7ae1bfd0546fd8fadb75ee327de58047f2a608f77', 'hash_last_shard_head': '8c821acd56aa224f524042f0f821934215f79e757a6863ebe22fe11200e2d2ec'}, 'USDJPY': {'n_shards': 120, 'first_month': 201611, 'last_month': 202610, 'bytes_total': 3555233846, 'hash_first_shard_head': '3f4d651d6c5d4b75773e0709b66547e8b775a289295a8e7a4cb845660cbc01ba', 'hash_last_shard_head': '21da297010db2f405520f40e033b9eaf0501e31fe2bb0ea7016ab380caf70f70'}}
+- **Decision:** base rates recorded; no edge claim; pre-registered exclusions held
