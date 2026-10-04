@@ -154,12 +154,19 @@ def read_mt5_csv_frame(path) -> pd.DataFrame:
     return out
 
 
-def recover_from_exports(export_dir: Path, shard_root: Path, pairs=None) -> dict:
+def recover_from_exports(export_dir: Path, shard_root: Path, pairs=None,
+                         allow_loss: bool = False) -> dict:
     """Rebuild shards' chronology from the original export CSVs (round-4 fix).
 
     For each pair-month file present in the export dir, re-read with true
     arrival order and replace the old shard after checking that every stored
     quote occurrence is present. Sequence numbers are rebuilt from file order.
+
+    allow_loss=True: accept replacement when the fresh export lacks stored
+    occurrences, recording the loss explicitly in the store manifest
+    (per-shard `lost_occurrences` count + timestamps). Never silent — the
+    default refuses; use only when the export source is authoritative and
+    the missing ticks are documented (server-side re-download variance).
     """
     import re
     fname_re = re.compile(r"^(?P<pair>[A-Z]{6})_ticks_(?P<yyyymm>\d{6})\.csv$")
@@ -175,6 +182,7 @@ def recover_from_exports(export_dir: Path, shard_root: Path, pairs=None) -> dict
         fresh = read_mt5_csv_frame(csv)
         if fresh.empty:
             raise ValueError(f"empty recovery export: {csv}")
+        loss_record = None
         if shard.exists():
             existing = read_shard(shard)
             # Require every stored quote occurrence, even when its order was
@@ -183,14 +191,26 @@ def recover_from_exports(export_dir: Path, shard_root: Path, pairs=None) -> dict
                                             "bid": df.bid.to_numpy(), "ask": df.ask.to_numpy()})
             old_counts = keys(existing).value_counts()
             new_counts = keys(fresh).value_counts().reindex(old_counts.index, fill_value=0)
-            if (new_counts < old_counts).any():
-                raise ValueError(f"recovery export lacks stored quote occurrences: {csv}")
+            missing_mask = new_counts < old_counts
+            if missing_mask.any():
+                n_missing = int((old_counts[missing_mask] - new_counts[missing_mask]).sum())
+                if not allow_loss:
+                    raise ValueError(f"recovery export lacks stored quote occurrences: {csv} "
+                                     f"({n_missing} occurrences)")
+                lost_keys = old_counts[missing_mask].index
+                lost_ts = sorted(set(pd.to_datetime(lost_keys.get_level_values("ts"), utc=True)
+                                     .strftime("%Y-%m-%dT%H:%M:%S")))
+                loss_record = {"lost_occurrences": n_missing, "distinct_lost_quotes": int(missing_mask.sum()),
+                               "timestamps_sample": lost_ts[:5]}
         shard.parent.mkdir(parents=True, exist_ok=True)
         write_shard(fresh, shard)
-        out[f"{pair}/{yyyymm}"] = {"rebuilt_rows": len(fresh), "chronology": "source-arrival"}
+        entry = {"rebuilt_rows": len(fresh), "chronology": "source-arrival"}
+        if loss_record:
+            entry.update(loss_record)
+        out[f"{pair}/{yyyymm}"] = entry
         mp = shard_root / STORE_MANIFEST
         manifest = json.loads(mp.read_text()) if mp.exists() else {}
-        manifest.setdefault("shards", {})[f"{pair}/{yyyymm}"] = {"chronology": "source-arrival"}
+        manifest.setdefault("shards", {})[f"{pair}/{yyyymm}"] = entry
         # Old bindings are retained: consumers reject them until a fresh run.
         mp.write_text(json.dumps(manifest, indent=2))
     return out

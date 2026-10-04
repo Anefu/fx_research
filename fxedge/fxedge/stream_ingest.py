@@ -54,6 +54,12 @@ def _count_new(old, merged):
 
 def convert_idle(export_dir: Path, shard_root: Path, pairs: Optional[list] = None,
                  idle_secs: float = STALE_SECONDS, limit: Optional[int] = None) -> int:
+    """Convert every idle month-CSV; per-file error isolation (round-4/monitor fix).
+
+    A strict refusal (merge conflict) leaves that CSV in place for
+    recover_from_exports and the loop continues to the next file — one bad
+    month never kills the watcher. Returns count converted this pass.
+    """
     now = time.time()
     done = 0
     for csv in sorted(export_dir.glob(CSV_GLOB), key=lambda f: f.stat().st_mtime):
@@ -64,8 +70,12 @@ def convert_idle(export_dir: Path, shard_root: Path, pairs: Optional[list] = Non
             continue
         if now - csv.stat().st_mtime < idle_secs:
             continue
-        pair, yyyymm, n, n_ov = convert_one(csv, shard_root)
-        print(f"  {pair} {yyyymm}: {n:,} rows" + (f" ({n_ov:,} duplicate records dropped)" if n_ov else ""), flush=True)
+        try:
+            pair, yyyymm, n, n_ov = convert_one(csv, shard_root)
+        except ValueError as e:
+            print(f"  CONFLICT {csv.name}: {e} — left in place for recover_from_exports", flush=True)
+            continue
+        print(f"  {pair} {yyyymm}: {n:,} rows" + (f" ({n_ov:,} overlapping records dropped)" if n_ov else ""), flush=True)
         done += 1
         if limit and done >= limit:
             break
